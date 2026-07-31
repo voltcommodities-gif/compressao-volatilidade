@@ -105,6 +105,15 @@
   input[type=range]{width:160px;accent-color:var(--accent)}
   .note{background:color-mix(in srgb,var(--accent) 7%,var(--surface));border:1px solid var(--border);border-radius:12px;padding:12px 16px;font-size:12.5px;color:var(--secondary);margin:20px 0 0}
   .note b{color:var(--ink)}
+  .prose{max-width:780px}
+  .prose .lead{font-size:15px;color:var(--ink);margin:0 0 6px}
+  .prose h3{font-size:15px;font-weight:660;margin:2px 0 6px}
+  .prose p{font-size:13.5px;color:var(--secondary);margin:7px 0}
+  .prose ul{font-size:13.5px;color:var(--secondary);margin:7px 0;padding-left:20px}
+  .prose li{margin:5px 0}
+  .prose b{color:var(--ink)} .prose .pos{color:var(--good)} .prose .neg{color:var(--bad)}
+  .prose code{font-family:var(--mono);font-size:12px;background:var(--surface-2);padding:1px 6px;border-radius:5px;color:var(--ink)}
+  .prose .formula{font-family:var(--mono);font-size:12.5px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;margin:8px 0;color:var(--ink);overflow-x:auto}
   .foot{color:var(--muted);font-size:12px;text-align:center;margin-top:24px}
   @media (max-width:720px){ .head h2{font-size:22px} }
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
@@ -334,17 +343,74 @@
     draw();
   }
 
+  /* ---------- metodologia ---------- */
+  function methodView(){
+    const b20=META.baseline[20];
+    document.getElementById("view").innerHTML=`
+      <div class="head"><div class="title"><h2>Metodologia</h2>
+        <span class="full">como este screening identifica e testa a compressão de volatilidade</span></div></div>
+      <div class="card prose">
+        <p class="lead">Este painel procura ações com a <b>volatilidade comprimida</b> — o clássico <b>Bollinger Band Squeeze</b> (também chamado TTM Squeeze). A ideia: quando a oscilação de preço aperta muito, costuma vir um <b>movimento grande</b> em seguida (a "mola" que solta).</p>
+
+        <h3>1. Os indicadores</h3>
+        <ul>
+          <li><b>Bandas de Bollinger (20, 2σ):</b> uma média móvel de 20 dias úteis (a "base") com uma banda acima e outra abaixo, a <b>2 desvios-padrão</b> do preço. Quanto mais o preço oscila, mais largas ficam as bandas.
+            <div class="formula">base = média(fech, 20) · banda = base ± 2 × desvio-padrão(fech, 20)</div></li>
+          <li><b>Canais de Keltner (20, 1,5×ATR):</b> a mesma base, mas com as bordas medidas pela <b>amplitude média real (ATR)</b> em vez do desvio-padrão. O ATR mede o tamanho típico do candle (incluindo gaps).
+            <div class="formula">canal = base ± 1,5 × ATR(20)</div></li>
+        </ul>
+
+        <h3>2. Comprimido × disparo</h3>
+        <ul>
+          <li><b>Comprimido (squeeze on):</b> quando as Bandas de Bollinger ficam <b>inteiramente dentro</b> dos Canais de Keltner. Isso só acontece quando a volatilidade recente está anormalmente baixa — a mola comprimida. No gráfico é a área <b>laranja</b>.</li>
+          <li><b>Disparo:</b> o dia em que a compressão <b>acaba</b> — as bandas voltam a sair do Keltner. É o momento em que a mola solta. Marcado com ▲/▼ no gráfico.</li>
+        </ul>
+
+        <h3>3. Direção do disparo</h3>
+        <p>O squeeze em si <b>não diz a direção</b> — só que vem um movimento. Aqui, a direção do disparo é definida de forma simples: <b>▲ alta</b> se, no dia do disparo, o preço está <b>acima</b> da base (média de 20); <b>▼ baixa</b> se está abaixo.</p>
+
+        <h3>4. Largura de banda e percentil</h3>
+        <p>A <b>largura de banda</b> = (banda superior − inferior) ÷ base, em %. Quanto <b>menor</b>, mais comprimida a volatilidade. O <b>percentil</b> (de 0º a 100º) compara a largura de hoje com os últimos <b>~6 meses</b> (126 pregões): <b>5º percentil</b> significa "mais comprimido que 95% dos últimos 6 meses".</p>
+
+        <h3>5. Sem look-ahead (viés de futuro)</h3>
+        <p>Todos os indicadores usam apenas <b>janelas passadas</b> que fecham no próprio dia — nada olha para frente. O disparo em um dia é conhecido no <b>fechamento daquele dia</b>. Nenhum cálculo usa informação que só existiria depois.</p>
+
+        <h3>6. Backtest — o squeeze funciona?</h3>
+        <p>Para cada disparo do histórico, o painel mede o que aconteceu <b>depois</b>, em vários horizontes (5, 10, 20, 40 e 60 <b>dias úteis</b> — pregões, não dias de calendário; 40 pregões ≈ 2 meses corridos).</p>
+        <ul>
+          <li><b>Retorno na direção prevista:</b> se o disparo foi ▲ e o preço subiu, conta como acerto (verde); se foi ▼ e o preço caiu, também acerto. O retorno é medido "na direção da aposta".</li>
+          <li><b>Base:</b> o retorno <b>incondicional</b> do universo no mesmo horizonte (o mercado sobe sozinho, ~${b20>=0?"+":""}${b20}% em 20 pregões). Serve para descontar essa tendência natural.</li>
+          <li><b>Edge:</b> quanto o disparo <b>bate a base</b>. É o número que importa — acerto alto pode ser só o mercado subindo.</li>
+          <li><b>Expandiu:</b> % dos disparos em que a volatilidade <b>de fato aumentou</b> (a largura de banda subiu) nos 10 pregões seguintes.</li>
+        </ul>
+        <p><b>O que os dados mostram:</b> a compressão prevê muito bem a <b>expansão</b> de volatilidade (~85% dos disparos realmente expandem), mas a <b>direção</b> tem pouco edge. Ou seja: <b>o squeeze avisa que vem um movimento grande, não pra que lado.</b></p>
+
+        <h3>7. Parâmetros ajustáveis</h3>
+        <ul>
+          <li><b>Mín. dias comprimido:</b> só considera disparos precedidos por pelo menos N dias de compressão (filtra squeezes curtos/ruído).</li>
+          <li><b>Horizonte (5–60d):</b> em quantos pregões medir o resultado.</li>
+          <li><b>Período / escala</b> do gráfico de cada ativo.</li>
+        </ul>
+
+        <h3>8. Dados</h3>
+        <p>Fechamentos <b>ajustados</b> (splits e dividendos) via Yahoo Finance, ~10 anos por ativo. Período: ${META.start} a ${META.end}.</p>
+      </div>
+      <div class="note"><b>Ferramenta de estudo</b> — não é recomendação de investimento. Rentabilidade passada não garante retorno futuro.</div>
+      <div class="foot">Gerado em ${META.generated}.</div>`;
+  }
+
   /* ---------- abas / tema ---------- */
   const tabsEl=document.getElementById("tabs");
   tabsEl.innerHTML=`<button class="tab tbl" role="tab" data-tab="__table__">▤ Screening</button>`+
+    `<button class="tab tbl" role="tab" data-tab="__method__">ⓘ Metodologia</button>`+
     TICKERS.map(t=>{const s=SCREEN.find(x=>x.ticker===t);const dot=s&&s.state==="comprimido"?`<span class="dotc" style="background:var(--squeeze)"></span>`:s&&s.state==="disparou"?`<span class="dotc" style="background:var(--accent)"></span>`:"";
     return `<button class="tab" role="tab" data-tab="${t}">${dot}${t.replace(".SA","")}</button>`;}).join("");
   function selectTab(id){
-    state.ticker=id==="__table__"?state.ticker:id;
+    state.ticker=(id==="__table__"||id==="__method__")?state.ticker:id;
     tabsEl.querySelectorAll(".tab").forEach(b=>b.setAttribute("aria-selected",b.dataset.tab===id));
     const a=tabsEl.querySelector(`[data-tab="${id}"]`);if(a)a.scrollIntoView({block:"nearest",inline:"nearest"});
     window.scrollTo({top:0,behavior:"instant"});
-    if(id==="__table__")tableView();else stockView();
+    if(id==="__table__")tableView();else if(id==="__method__")methodView();else stockView();
   }
   tabsEl.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>selectTab(b.dataset.tab)));
   function rerender(){const sel=tabsEl.querySelector('[aria-selected="true"]');selectTab(sel?sel.dataset.tab:"__table__");}
