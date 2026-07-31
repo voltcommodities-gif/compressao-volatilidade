@@ -1,0 +1,14 @@
+# Tickers para screening de rompimentos (um por linha, '#' comenta)
+# Brasil (.SA = B3)
+PETR4.SA
+VALE3.SA
+ITUB4.SA
+BBAS3.SA
+WEGE3.SA
+BBDC4.SA
+ABEV3.SA
+B3SA3.SA
+# EUA
+AAPL
+MSFT
+NVDA

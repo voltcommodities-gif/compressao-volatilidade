@@ -1,0 +1,360 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compressão de Volatilidade — Screening</title>
+<style>
+  :root{
+    color-scheme: light;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --page:#eef0f3; --surface:#ffffff; --surface-2:#f7f8fa;
+    --ink:#0e131a; --secondary:#535b66; --muted:#8a919c;
+    --grid:#e6e8ec; --axis:#cfd3da; --border:rgba(14,19,26,.10);
+    --accent:#184f95; --line:#2a78d6; --kc:#8a919c;
+    --good:#0a8f30; --good-bg:rgba(10,143,48,.10);
+    --bad:#cf3b3b; --bad-bg:rgba(207,59,59,.10);
+    --squeeze:#c47d1a; --squeeze-bg:rgba(196,125,26,.16);
+    --band:rgba(42,120,214,.10);
+    --shadow:0 1px 2px rgba(14,19,26,.05), 0 8px 24px -16px rgba(14,19,26,.18);
+  }
+  @media (prefers-color-scheme: dark){:root:where(:not([data-theme="light"])){
+    color-scheme: dark;
+    --page:#0b0d10; --surface:#14181d; --surface-2:#1b2026; --ink:#f0f2f5;
+    --secondary:#aeb6c1; --muted:#7d858f; --grid:#242a31; --axis:#333b44;
+    --border:rgba(255,255,255,.10); --accent:#6aa6f0; --line:#3987e5; --kc:#7d858f;
+    --good:#28b14c; --good-bg:rgba(40,177,76,.14);
+    --bad:#e26a6a; --bad-bg:rgba(226,106,106,.14);
+    --squeeze:#e0a94a; --squeeze-bg:rgba(224,169,74,.18); --band:rgba(57,135,229,.13);
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -18px rgba(0,0,0,.7);}}
+  :root[data-theme="dark"]{color-scheme: dark;
+    --page:#0b0d10; --surface:#14181d; --surface-2:#1b2026; --ink:#f0f2f5;
+    --secondary:#aeb6c1; --muted:#7d858f; --grid:#242a31; --axis:#333b44;
+    --border:rgba(255,255,255,.10); --accent:#6aa6f0; --line:#3987e5; --kc:#7d858f;
+    --good:#28b14c; --good-bg:rgba(40,177,76,.14);
+    --bad:#e26a6a; --bad-bg:rgba(226,106,106,.14);
+    --squeeze:#e0a94a; --squeeze-bg:rgba(224,169,74,.18); --band:rgba(57,135,229,.13);
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -18px rgba(0,0,0,.7);}
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--page);color:var(--ink);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 20px 80px}
+  header.top{position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--page) 90%,transparent);
+    backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
+  .top-inner{max-width:1120px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .brand{font-family:var(--mono);font-weight:600;letter-spacing:.02em}
+  .brand small{color:var(--muted);font-weight:400;letter-spacing:.1em;text-transform:uppercase;font-size:10.5px;margin-left:8px}
+  .toggle{font-family:var(--mono);font-size:12px;color:var(--secondary);background:var(--surface);
+    border:1px solid var(--border);border-radius:8px;padding:6px 12px;cursor:pointer}
+  .toggle:hover{border-color:var(--accent);color:var(--ink)}
+  .tabs-outer{position:sticky;top:49px;z-index:25;background:var(--page);border-bottom:1px solid var(--border)}
+  .tabs{max-width:1120px;margin:0 auto;padding:8px 20px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:thin}
+  .tabs::-webkit-scrollbar{height:6px}.tabs::-webkit-scrollbar-thumb{background:var(--axis);border-radius:3px}
+  .tab{flex:0 0 auto;font-family:var(--mono);font-size:12.5px;font-weight:600;color:var(--secondary);
+    background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 13px;cursor:pointer;white-space:nowrap}
+  .tab:hover{color:var(--ink);border-color:var(--accent)}
+  .tab[aria-selected="true"]{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .tab.tbl{margin-left:6px}
+  .dotc{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:middle}
+
+  section.view{padding-top:22px}
+  .head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:12px}
+  .head .title{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+  .head h2{font-size:26px;font-weight:660;letter-spacing:-.01em}
+  .head .full{color:var(--muted);font-size:13px}
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:9px;overflow:hidden}
+  .seg button{font-family:var(--mono);font-size:12px;background:var(--surface);color:var(--secondary);border:0;padding:7px 12px;cursor:pointer;border-right:1px solid var(--border)}
+  .seg button:last-child{border-right:0}
+  .seg button[aria-pressed="true"]{background:var(--accent);color:#fff}
+  .statline{display:flex;gap:20px;flex-wrap:wrap;margin-bottom:14px}
+  .statline .s{font-size:13px;color:var(--secondary)}
+  .statline .s b{color:var(--ink);font-variant-numeric:tabular-nums}
+  .badge{font-family:var(--mono);font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px}
+  .badge.sq{background:var(--squeeze-bg);color:var(--squeeze)}
+  .badge.fire{background:var(--accent);color:#fff}
+  .badge.norm{background:var(--surface-2);color:var(--muted)}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 20px 14px;box-shadow:var(--shadow);margin-bottom:16px}
+  .card h3{font-size:14px;font-weight:620;margin-bottom:4px}
+  .card .sub{font-size:12.5px;color:var(--muted);margin-bottom:12px}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--secondary);margin-bottom:10px}
+  .legend .it{display:inline-flex;align-items:center;gap:6px}
+  .swatch{width:14px;height:3px;border-radius:2px;display:inline-block}
+  .swatch.dash{background:repeating-linear-gradient(90deg,currentColor 0 5px,transparent 5px 9px)}
+  .swatch.box{width:13px;height:11px;border-radius:3px}
+  .swatch.up,.swatch.down{width:0;height:0;background:none}
+  .swatch.up{border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:8px solid currentColor}
+  .swatch.down{border-left:5px solid transparent;border-right:5px solid transparent;border-top:8px solid currentColor}
+  .chart-host{width:100%;position:relative}
+  svg{display:block;width:100%;height:auto;overflow:visible}
+  .tt{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--border);border-radius:9px;
+    padding:8px 10px;font-size:12px;box-shadow:var(--shadow);opacity:0;transition:opacity .08s;font-variant-numeric:tabular-nums;z-index:5;min-width:140px}
+  .tt .d{font-family:var(--mono);color:var(--muted);font-size:11px;margin-bottom:5px}
+  .tt .r{display:flex;justify-content:space-between;gap:14px}
+  .tt .r span:first-child{display:inline-flex;align-items:center;gap:6px;color:var(--secondary)}.tt .r b{color:var(--ink)}
+  .table-host{overflow-x:auto;border:1px solid var(--border);border-radius:14px;background:var(--surface);box-shadow:var(--shadow)}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  thead th{position:sticky;top:0;background:var(--surface-2);text-align:right;padding:10px 13px;font-family:var(--mono);
+    font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);cursor:pointer;white-space:nowrap;border-bottom:1px solid var(--border);user-select:none}
+  thead th:first-child,tbody td:first-child{text-align:left}
+  thead th.up::after{content:" ▲";color:var(--accent)}thead th.down::after{content:" ▼";color:var(--accent)}
+  tbody td{padding:9px 13px;text-align:right;border-bottom:1px solid var(--grid);font-variant-numeric:tabular-nums;white-space:nowrap}
+  tbody tr:hover{background:var(--surface-2)}tbody tr:last-child td{border-bottom:0}
+  tbody tr.clickable{cursor:pointer} tbody tr.sqrow td:first-child{box-shadow:inset 3px 0 0 var(--squeeze)}
+  td.tk{font-weight:600;font-family:var(--mono)}
+  .pos{color:var(--good)} .neg{color:var(--bad)} .muted{color:var(--muted)}
+  .metric-name{font-weight:600;color:var(--ink)}
+  .rng{display:flex;flex-direction:column;gap:5px}.rng .rl{font-family:var(--mono);font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+  input[type=range]{width:160px;accent-color:var(--accent)}
+  .note{background:color-mix(in srgb,var(--accent) 7%,var(--surface));border:1px solid var(--border);border-radius:12px;padding:12px 16px;font-size:12.5px;color:var(--secondary);margin:20px 0 0}
+  .note b{color:var(--ink)}
+  .foot{color:var(--muted);font-size:12px;text-align:center;margin-top:24px}
+  @media (max-width:720px){ .head h2{font-size:22px} }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="top">
+  <div class="top-inner">
+    <div class="brand">◧ COMPRESSÃO DE VOLATILIDADE <small>Bollinger Squeeze</small></div>
+    <button class="toggle" id="themeBtn" aria-label="Alternar tema">◐ Tema</button>
+  </div>
+</header>
+<div class="tabs-outer"><div class="tabs" id="tabs" role="tablist"></div></div>
+<div class="wrap"><section class="view" id="view"></section></div>
+
+<script id="panel-data" type="application/json">__DATA__</script>
+<script>
+(function(){
+  "use strict";
+  const P=JSON.parse(document.getElementById("panel-data").textContent);
+  const DATA=P.data, TICKERS=P.tickers, META=P.meta, SCREEN=P.screen, BASE=META.baseline;
+  const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const numBR=new Intl.NumberFormat("pt-BR",{maximumFractionDigits:2});
+  const fmtPct=(x,d=2)=>x==null?"—":(x>=0?"+":"")+x.toFixed(d)+"%";
+  const fmtN=(x,d=1)=>x==null?"—":x.toFixed(d);
+
+  const ALLFIRES=[]; TICKERS.forEach(t=>DATA[t].fires.forEach(f=>ALLFIRES.push(Object.assign({tk:t},f))));
+  let state={ticker:TICKERS[0], range:"3A", pscale:"lin", minDays:3, horizon:20};
+
+  /* ---------- motor SVG ---------- */
+  const ns="http://www.w3.org/2000/svg";
+  const el=(t,a)=>{const e=document.createElementNS(ns,t);for(const k in a)e.setAttribute(k,a[k]);return e;};
+  function niceTicks(mn,mx,n){const sp=mx-mn||1,s0=sp/n,mg=Math.pow(10,Math.floor(Math.log10(s0)));
+    const nm=s0/mg,st=(nm<1.5?1:nm<3?2:nm<7?5:10)*mg,lo=Math.floor(mn/st)*st,o=[];
+    for(let v=lo;v<=mx+st*.5;v+=st)if(v>=mn-1e-9)o.push(v);return o;}
+  function tsChart(host,tt,cfg){
+    host.querySelectorAll("svg").forEach(s=>s.remove());
+    const W=host.clientWidth||820,H=cfg.height||300,padL=cfg.padL||54,padR=16,padT=10,padB=24;
+    const svg=el("svg",{viewBox:`0 0 ${W} ${H}`});host.appendChild(svg);
+    const iw=W-padL-padR,ih=H-padT-padB,N=cfg.dates.length;
+    let vmin=Infinity,vmax=-Infinity;const scan=v=>{if(v!=null&&isFinite(v)){if(v<vmin)vmin=v;if(v>vmax)vmax=v;}};
+    cfg.lines.forEach(l=>l.vals.forEach(scan)); if(cfg.band){cfg.band.hi.forEach(scan);cfg.band.lo.forEach(scan);}
+    const log=cfg.log,tY=v=>log?Math.log10(Math.max(v,1e-6)):v;
+    let lo=cfg.ymin!=null?cfg.ymin:tY(vmin), hi=cfg.ymax!=null?cfg.ymax:tY(vmax);
+    const _pad=(hi-lo)*.08||1; if(cfg.ymin==null)lo-=_pad; if(cfg.ymax==null)hi+=_pad;
+    const X=i=>padL+(N<=1?0:i/(N-1)*iw),Y=v=>padT+ih-(tY(v)-lo)/((hi-lo)||1)*ih;
+    if(cfg.band){let d="";const {hi:hv,lo:lv}=cfg.band;let st=false;
+      for(let i=0;i<N;i++){if(hv[i]==null)continue;d+=(st?"L":"M")+X(i).toFixed(1)+" "+Y(hv[i]).toFixed(1)+" ";st=true;}
+      for(let i=N-1;i>=0;i--){if(lv[i]==null)continue;d+="L"+X(i).toFixed(1)+" "+Y(lv[i]).toFixed(1)+" ";}
+      if(d)svg.appendChild(el("path",{d:d+"Z",fill:css("--band"),stroke:"none"}));}
+    if(cfg.shade){let s=null;for(let i=0;i<=N;i++){const on=i<N&&cfg.shade[i];
+      if(on&&s===null)s=i;else if(!on&&s!==null){svg.appendChild(el("rect",{x:X(s),y:padT,width:Math.max(1,X(i-1)-X(s)),height:ih,fill:css("--squeeze-bg")}));s=null;}}}
+    (cfg.yticks||niceTicks(lo,hi,5)).forEach(v=>{const y=Y(v);
+      svg.appendChild(el("line",{x1:padL,x2:W-padR,y1:y,y2:y,stroke:css("--grid"),"stroke-width":1}));
+      const t=el("text",{x:padL-8,y:y+3.5,"text-anchor":"end",fill:css("--muted"),"font-size":10.5,"font-family":css("--mono")});t.textContent=cfg.yfmt(v);svg.appendChild(t);});
+    const yrs={};cfg.dates.forEach((d,i)=>{const y=d.slice(0,4);if(!(y in yrs))yrs[y]=i;});
+    Object.entries(yrs).forEach(([y,i])=>{const x=X(i);
+      svg.appendChild(el("line",{x1:x,x2:x,y1:padT,y2:padT+ih,stroke:css("--grid"),"stroke-width":1,opacity:.5}));
+      const t=el("text",{x,y:H-8,"text-anchor":"middle",fill:css("--muted"),"font-size":10.5,"font-family":css("--mono")});t.textContent=y;svg.appendChild(t);});
+    cfg.lines.forEach(l=>{let d="",st=false;l.vals.forEach((v,i)=>{if(v==null){st=false;return;}d+=(st?"L":"M")+X(i).toFixed(1)+" "+Y(v).toFixed(1)+" ";st=true;});
+      svg.appendChild(el("path",{d,fill:"none",stroke:l.color,"stroke-width":l.width||1.4,"stroke-dasharray":l.dash||"none","stroke-linejoin":"round"}));});
+    (cfg.markers||[]).forEach(mk=>{const base=cfg.markerVals||cfg.lines[0].vals;const b=base[mk.idx];if(b==null)return;
+      const x=X(mk.idx),y=Y(b),c=mk.dir>0?css("--good"):css("--bad"),s=5;
+      const p=mk.dir>0?`M${x} ${y-s*2.4} L${x-s} ${y-s*.4} L${x+s} ${y-s*.4} Z`:`M${x} ${y+s*2.4} L${x-s} ${y+s*.4} L${x+s} ${y+s*.4} Z`;
+      svg.appendChild(el("path",{d:p,fill:c,stroke:css("--surface"),"stroke-width":1}));});
+    const focus=el("line",{x1:0,x2:0,y1:padT,y2:padT+ih,stroke:css("--axis"),"stroke-width":1,opacity:0});svg.appendChild(focus);
+    const dots=cfg.lines.map(l=>{const c=el("circle",{r:4,fill:l.color,stroke:css("--surface"),"stroke-width":2,opacity:0});svg.appendChild(c);return c;});
+    const ov=el("rect",{x:padL,y:padT,width:iw,height:ih,fill:"transparent"});svg.appendChild(ov);
+    ov.addEventListener("mousemove",ev=>{const r=svg.getBoundingClientRect(),sx=W/r.width;
+      let i=Math.round(((ev.clientX-r.left)*sx-padL)/(iw||1)*(N-1));i=Math.max(0,Math.min(N-1,i));
+      focus.setAttribute("x1",X(i));focus.setAttribute("x2",X(i));focus.setAttribute("opacity",1);
+      let rows="";cfg.lines.forEach((l,k)=>{const v=l.vals[i];if(v==null){dots[k].setAttribute("opacity",0);return;}
+        dots[k].setAttribute("cx",X(i));dots[k].setAttribute("cy",Y(v));dots[k].setAttribute("opacity",1);
+        rows+=`<div class="r"><span><span class="swatch" style="background:${l.color}"></span>${l.name}</span><b>${cfg.tfmt(v)}</b></div>`;});
+      if(cfg.extra){const e=cfg.extra(i);if(e)rows+=e;}
+      tt.innerHTML=`<div class="d">${cfg.dates[i]}</div>${rows}`;tt.style.opacity=1;
+      let tx=(X(i)/sx)+14;if(tx>r.width-160)tx=(X(i)/sx)-tt.offsetWidth-14;tt.style.left=Math.max(0,tx)+"px";tt.style.top="8px";});
+    ov.addEventListener("mouseleave",()=>{tt.style.opacity=0;focus.setAttribute("opacity",0);dots.forEach(d=>d.setAttribute("opacity",0));});
+  }
+
+  /* ---------- poder preditivo (calculado no cliente) ---------- */
+  function predStats(){
+    const H=state.horizon, fires=ALLFIRES.filter(f=>f.days>=state.minDays && f.fwd.scored);
+    const out={};
+    for(const d of ["up","down"]){
+      const g=fires.filter(f=>f.dir===d), sign=d==="up"?1:-1;
+      const s=g.map(f=>f.fwd["s"+H]).filter(v=>v!=null);
+      const exp=g.map(f=>f.fwd.expanded);
+      out[d]={n:g.length,
+        hit:s.length?(s.filter(v=>v>0).length/s.length*100):null,
+        avg:s.length?(s.reduce((a,b)=>a+b,0)/s.length):null,
+        edge:s.length?(s.reduce((a,b)=>a+b,0)/s.length - sign*BASE[H]):null,
+        expand:exp.length?(exp.filter(Boolean).length/exp.length*100):null};
+    }
+    return out;
+  }
+  function predPanel(){
+    const H=state.horizon, st=predStats();
+    const c=(v,suf="",col=false)=>v==null?'<td class="muted">—</td>':`<td class="${col?(v>=0?'pos':'neg'):''}">${(col&&v>=0?'+':'')}${v.toFixed(col?2:1)}${suf}</td>`;
+    const row=(d,lab)=>{const r=st[d];return `<tr><td class="metric-name">${lab}</td><td>${r.n}</td>${c(r.hit,'%')}${c(r.avg,'%',true)}${c(r.edge,'%',true)}${c(r.expand,'%')}</tr>`;};
+    return `<div class="card">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div><h3>Poder preditivo — o squeeze funciona?</h3>
+          <div class="sub">Disparos com ≥ <b>${state.minDays}</b> dias comprimido, medido <b>${H} candles</b> depois. <b>Base</b> ${(BASE[H]>=0?'+':'')}${BASE[H]}%/${H}d. <b>Edge</b> = quanto bate a base. <b>Expandiu</b> = % em que a volatilidade de fato subiu (a mola soltou).</div></div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end">
+          <div class="rng"><span class="rl">mín. dias comprimido <b id="mdv">${state.minDays}</b></span><input type="range" id="fMd" min="1" max="20" step="1" value="${state.minDays}"></div>
+          <div class="seg" role="group" aria-label="Horizonte">${META.horizons.map(h=>`<button data-h="${h}" aria-pressed="${h===H}">${h}d</button>`).join("")}</div>
+        </div>
+      </div>
+      <div class="table-host"><table><thead><tr><th class="metric-name">Disparo</th><th>n</th><th>Acerto</th><th>Ret. médio</th><th>Edge vs. base</th><th>Expandiu vol.</th></tr></thead>
+        <tbody>${row("up","▲ Alta (rompeu p/ cima)")}${row("down","▼ Baixa (rompeu p/ baixo)")}</tbody></table></div>
+      <div class="sub" style="margin:10px 0 0">Leitura: a compressão prevê muito bem a <b>expansão</b> de volatilidade, mas a <b>direção</b> tem pouco edge — o squeeze avisa que <b>vem um movimento grande</b>, não pra que lado.</div></div>`;
+  }
+  function bindPred(host){
+    host.querySelectorAll("[data-h]").forEach(b=>b.addEventListener("click",()=>{state.horizon=+b.dataset.h;rerender();}));
+    const md=host.querySelector("#fMd");if(md)md.addEventListener("input",e=>{state.minDays=+e.target.value;rerender();});
+  }
+
+  /* ---------- view por ativo ---------- */
+  function stockView(){
+    const tk=state.ticker,D=DATA[tk],sc=D.screen||SCREEN.find(s=>s.ticker===tk);
+    const N=D.dates.length,RANGE={"1A":252,"3A":756,"5A":1260,"tudo":N};
+    const start=Math.max(0,N-(RANGE[state.range]||N));
+    const sl=a=>a.slice(start), slStr=s=>s.slice(start).split("").map(Number);
+    const fires=D.fires.filter(f=>f.days>=state.minDays);
+    const mk=fires.filter(f=>f.i>=start).map(f=>({idx:f.i-start,dir:f.dir==="up"?1:-1}));
+    const st=sc.state, badge=st==="comprimido"?`<span class="badge sq">comprimido ${sc.days}d</span>`
+      :st==="disparou"?`<span class="badge fire">disparou</span>`:`<span class="badge norm">normal</span>`;
+    const v=document.getElementById("view");
+    v.innerHTML=`
+      <div class="head"><div class="title"><h2>${tk}</h2><span class="full">${META.start} – ${META.end} · fechamento ajustado</span></div></div>
+      <div class="statline">
+        <span class="s">Status ${badge}</span>
+        <span class="s">Largura de banda (percentil) <b>${sc.bw_pct==null?"—":sc.bw_pct+"º"}</b></span>
+        <span class="s">Último disparo <b>${sc.last_fire_date||"—"}</b> ${sc.last_dir?(sc.last_dir==="up"?"▲ alta":"▼ baixa"):""}</span>
+        <span class="s">Disparos (${state.minDays}d+) <b>${fires.length}</b></span>
+      </div>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+          <div><h3>Preço, Bollinger e Keltner — compressão &amp; disparos</h3>
+            <div class="sub">Faixa azul = Bandas de Bollinger. Tracejado cinza = Canais de Keltner. Área laranja = <b>comprimido</b> (Bollinger dentro do Keltner). ▲ verde / ▼ vermelho = disparo (a mola soltou).</div></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <div class="seg" role="group" aria-label="Período">${["1A","3A","5A","tudo"].map(r=>`<button data-rg="${r}" aria-pressed="${state.range===r}">${r==="tudo"?"Tudo":r}</button>`).join("")}</div>
+            <div class="seg" role="group" aria-label="Escala"><button data-ps="lin" aria-pressed="${state.pscale==="lin"}">Linear</button><button data-ps="log" aria-pressed="${state.pscale==="log"}">Log</button></div>
+          </div>
+        </div>
+        <div class="legend">
+          <span class="it"><span class="swatch" style="background:var(--ink)"></span>Preço</span>
+          <span class="it"><span class="swatch box" style="background:var(--band)"></span>Bollinger</span>
+          <span class="it"><span class="swatch dash" style="color:var(--kc)"></span>Keltner</span>
+          <span class="it"><span class="swatch box" style="background:var(--squeeze-bg)"></span>Comprimido</span>
+          <span class="it"><span class="swatch up" style="color:var(--good)"></span>Disparo alta</span>
+          <span class="it"><span class="swatch down" style="color:var(--bad)"></span>Disparo baixa</span>
+        </div>
+        <div class="chart-host" id="hp"><div class="tt" id="tp"></div></div>
+      </div>
+      <div class="card">
+        <h3>Largura de banda das Bandas de Bollinger</h3>
+        <div class="sub">(banda superior − inferior) ÷ média, em %. Quanto <b>menor</b>, mais comprimida a volatilidade. Área laranja = squeeze on.</div>
+        <div class="chart-host" id="hb"><div class="tt" id="tb"></div></div>
+      </div>
+      <div class="card">
+        <h3>Últimos disparos</h3>
+        <div class="sub">Disparos com ≥ ${state.minDays} dias comprimido — o que aconteceu ${state.horizon} candles depois.</div>
+        <div class="table-host"><table id="firesTable"></table></div>
+      </div>
+      <div class="note"><b>Ferramenta de estudo</b> — Bollinger (20, 2σ) vs. Keltner (20, 1,5×ATR) em dados ajustados. Não é recomendação de investimento.</div>
+      <div class="foot">Gerado em ${META.generated} · período ${META.start} a ${META.end}.</div>`;
+
+    tsChart(document.getElementById("hp"),document.getElementById("tp"),{
+      dates:sl(D.dates),height:340,log:state.pscale==="log",shade:slStr(D.squeeze),
+      band:{hi:sl(D.bb_up),lo:sl(D.bb_lo)}, markers:mk, markerVals:sl(D.close),
+      lines:[{name:"Preço",vals:sl(D.close),color:css("--ink"),width:1.6},
+             {name:"Bollinger sup.",vals:sl(D.bb_up),color:css("--line"),width:1},
+             {name:"Bollinger inf.",vals:sl(D.bb_lo),color:css("--line"),width:1},
+             {name:"Keltner sup.",vals:sl(D.kc_up),color:css("--kc"),width:1,dash:"4 3"},
+             {name:"Keltner inf.",vals:sl(D.kc_lo),color:css("--kc"),width:1,dash:"4 3"}],
+      yfmt:v=>v.toFixed(v<10?1:0),tfmt:v=>"R$ "+numBR.format(v)});
+    tsChart(document.getElementById("hb"),document.getElementById("tb"),{
+      dates:sl(D.dates),height:150,ymin:0,shade:slStr(D.squeeze),
+      lines:[{name:"Largura de banda",vals:sl(D.bw),color:css("--accent"),width:1.4}],
+      yfmt:v=>v.toFixed(0)+"%",tfmt:v=>v.toFixed(2)+"%",
+      extra:i=>{const p=sl(D.bw_pct)[i];return p==null?"":`<div class="r"><span>percentil</span><b>${p.toFixed(0)}º</b></div>`;}});
+    renderFires(D,fires.slice(-20).reverse());
+    v.querySelectorAll("[data-rg]").forEach(b=>b.addEventListener("click",()=>{state.range=b.dataset.rg;stockView();}));
+    v.querySelectorAll("[data-ps]").forEach(b=>b.addEventListener("click",()=>{state.pscale=b.dataset.ps;stockView();}));
+  }
+  function renderFires(D,fires){
+    const t=document.getElementById("firesTable"),H=state.horizon;
+    if(!fires.length){t.innerHTML='<tbody><tr><td class="muted">Nenhum disparo com esse mínimo de dias comprimido.</td></tr></tbody>';return;}
+    t.innerHTML=`<thead><tr><th>Data</th><th>Direção</th><th>Dias comprimido</th><th>Percentil banda</th><th>Resultado ${H}d</th><th>Expandiu</th></tr></thead><tbody>`+
+      fires.map(f=>{const r=f.fwd["r"+H],s=f.fwd["s"+H];
+        const res=f.fwd.scored?`<b class="${r>=0?'pos':'neg'}">${r>=0?'+':''}${r.toFixed(1)}%</b> <span class="${s>0?'pos':'neg'}">${s>0?'✓':'✗'}</span>`:'<span class="muted">recente</span>';
+        return `<tr><td>${f.date}</td><td class="${f.dir==='up'?'pos':'neg'}">${f.dir==='up'?'▲ alta':'▼ baixa'}</td>
+          <td>${f.days}</td><td>${f.bw_pct==null?"—":f.bw_pct+"º"}</td><td>${res}</td>
+          <td>${f.fwd.scored?(f.fwd.expanded?'<span class="pos">sim</span>':'<span class="muted">não</span>'):'—'}</td></tr>`;}).join("")+"</tbody>";
+  }
+
+  /* ---------- Tabela (screening) ---------- */
+  let sortK="state",sortDir=1;
+  const SPRIO={comprimido:0,disparou:1,normal:2};
+  function tableView(){
+    const v=document.getElementById("view");
+    v.innerHTML=predPanel()+`
+      <div class="head"><div class="title"><h2>Screening — compressão de volatilidade</h2>
+        <span class="full">${SCREEN.length} ativos · último pregão ${META.end} · <span class="dotc" style="background:var(--squeeze)"></span>comprimido hoje · clique numa linha</span></div></div>
+      <div class="table-host"><table><thead><tr id="thr"></tr></thead><tbody id="tb2"></tbody></table></div>
+      <div class="note"><b>Ferramenta de estudo</b>, não é recomendação de investimento.</div>`;
+    bindPred(v);
+    const C=[
+      {k:"name",t:"Ativo",fmt:r=>r.name,cls:"tk",sv:r=>r.name},
+      {k:"last_price",t:"Preço",fmt:r=>numBR.format(r.last_price)},
+      {k:"state",t:"Status",fmt:r=>r.state==="comprimido"?`<span class="badge sq">comprimido ${r.days}d</span>`:r.state==="disparou"?'<span class="badge fire">disparou</span>':'<span class="badge norm">normal</span>',sv:r=>SPRIO[r.state]*1000-(r.days||0)},
+      {k:"bw_pct",t:"Percentil banda",fmt:r=>r.bw_pct==null?"—":r.bw_pct+"º",sv:r=>r.bw_pct==null?999:r.bw_pct},
+      {k:"last_dir",t:"Último disparo",fmt:r=>r.last_fire_date?`${r.last_fire_date} ${r.last_dir==='up'?'<span class="pos">▲</span>':'<span class="neg">▼</span>'}`:"—",sv:r=>r.last_fire_date||""},
+      {k:"n_fires",t:"Disparos",fmt:r=>r.n_fires},
+    ];
+    const thr=document.getElementById("thr");
+    thr.innerHTML=C.map(c=>`<th data-k="${c.k}">${c.t}</th>`).join("");
+    function draw(){
+      const col=C.find(c=>c.k===sortK),sv=col.sv||(r=>r[col.k]);
+      const rows=SCREEN.slice().sort((a,b)=>{const x=sv(a),y=sv(b);return(typeof x==="string"?x.localeCompare(y):x-y)*sortDir;});
+      document.getElementById("tb2").innerHTML=rows.map(r=>`<tr class="clickable${r.state==='comprimido'?' sqrow':''}" data-tk="${r.ticker}">`+
+        C.map(c=>`<td class="${c.cls||''}">${c.fmt(r)}</td>`).join("")+"</tr>").join("");
+      thr.querySelectorAll("th").forEach(th=>{th.classList.remove("up","down");if(th.dataset.k===sortK)th.classList.add(sortDir<0?"down":"up");});
+      document.querySelectorAll("#tb2 tr").forEach(tr=>tr.addEventListener("click",()=>selectTab(tr.dataset.tk)));
+    }
+    thr.querySelectorAll("th").forEach(th=>th.addEventListener("click",()=>{const k=th.dataset.k;if(k===sortK)sortDir*=-1;else{sortK=k;sortDir=(k==="name"||k==="last_dir")?1:1;}draw();}));
+    draw();
+  }
+
+  /* ---------- abas / tema ---------- */
+  const tabsEl=document.getElementById("tabs");
+  tabsEl.innerHTML=`<button class="tab tbl" role="tab" data-tab="__table__">▤ Screening</button>`+
+    TICKERS.map(t=>{const s=SCREEN.find(x=>x.ticker===t);const dot=s&&s.state==="comprimido"?`<span class="dotc" style="background:var(--squeeze)"></span>`:s&&s.state==="disparou"?`<span class="dotc" style="background:var(--accent)"></span>`:"";
+    return `<button class="tab" role="tab" data-tab="${t}">${dot}${t.replace(".SA","")}</button>`;}).join("");
+  function selectTab(id){
+    state.ticker=id==="__table__"?state.ticker:id;
+    tabsEl.querySelectorAll(".tab").forEach(b=>b.setAttribute("aria-selected",b.dataset.tab===id));
+    const a=tabsEl.querySelector(`[data-tab="${id}"]`);if(a)a.scrollIntoView({block:"nearest",inline:"nearest"});
+    window.scrollTo({top:0,behavior:"instant"});
+    if(id==="__table__")tableView();else stockView();
+  }
+  tabsEl.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>selectTab(b.dataset.tab)));
+  function rerender(){const sel=tabsEl.querySelector('[aria-selected="true"]');selectTab(sel?sel.dataset.tab:"__table__");}
+
+  const btn=document.getElementById("themeBtn");
+  const cur=()=>document.documentElement.getAttribute("data-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");
+  btn.addEventListener("click",()=>{document.documentElement.setAttribute("data-theme",cur()==="dark"?"light":"dark");rerender();});
+  let rt;new ResizeObserver(()=>{clearTimeout(rt);rt=setTimeout(rerender,150);}).observe(document.body);
+
+  selectTab("__table__");
+})();
+</script>
