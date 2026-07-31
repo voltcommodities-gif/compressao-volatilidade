@@ -1,5 +1,39 @@
-# Tickers para screening de rompimentos (um por linha, '#' comenta)
-# Brasil (.SA = B3)
+# Tickers para o screening VCP (um por linha, '#' comenta)
+# O VCP é feito para LÍDERES de forte momentum — foco em crescimento/tecnologia.
+
+# --- EUA: crescimento / momentum ---
+NVDA
+AAPL
+MSFT
+GOOGL
+AMZN
+META
+TSLA
+AMD
+AVGO
+NFLX
+CRM
+ADBE
+ORCL
+QCOM
+MU
+COST
+LLY
+NOW
+PANW
+CRWD
+SNOW
+PLTR
+SMCI
+ANET
+UBER
+SHOP
+MELI
+TSM
+# --- ETFs (referência) ---
+QQQ
+SPY
+# --- Brasil (.SA = B3) ---
 PETR4.SA
 VALE3.SA
 ITUB4.SA
@@ -8,7 +42,9 @@ WEGE3.SA
 BBDC4.SA
 ABEV3.SA
 B3SA3.SA
-# EUA
-AAPL
-MSFT
-NVDA
+RENT3.SA
+PRIO3.SA
+SUZB3.SA
+RADL3.SA
+EQTL3.SA
+ITSA4.SA
