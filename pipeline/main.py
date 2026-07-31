@@ -18,7 +18,7 @@ HERE = Path(__file__).resolve().parent.parent
 DOCS = HERE / "docs"
 TEMPLATE = HERE / "templates" / "painel.template.html"
 
-HORIZONS = [10, 20, 40]
+HORIZONS = [5, 10, 20, 40, 60]
 FRESH_FIRE = 5        # "disparou" = disparo nos últimos N pregões
 log = logging.getLogger("pipeline")
 

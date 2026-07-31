@@ -267,7 +267,7 @@
       </div>
       <div class="card">
         <h3>Últimos disparos</h3>
-        <div class="sub">Disparos com ≥ ${state.minDays} dias comprimido — o que aconteceu ${state.horizon} candles depois.</div>
+        <div class="sub">Disparos com ≥ ${state.minDays} dias comprimido. Colunas <b>5d–60d</b> = retorno <b>na direção prevista</b> (verde = foi na direção; vermelho = contra). "Expandiu" = a volatilidade de fato subiu.</div>
         <div class="table-host"><table id="firesTable"></table></div>
       </div>
       <div class="note"><b>Ferramenta de estudo</b> — Bollinger (20, 2σ) vs. Keltner (20, 1,5×ATR) em dados ajustados. Não é recomendação de investimento.</div>
@@ -292,14 +292,13 @@
     v.querySelectorAll("[data-ps]").forEach(b=>b.addEventListener("click",()=>{state.pscale=b.dataset.ps;stockView();}));
   }
   function renderFires(D,fires){
-    const t=document.getElementById("firesTable"),H=state.horizon;
+    const t=document.getElementById("firesTable"),HS=META.horizons;
     if(!fires.length){t.innerHTML='<tbody><tr><td class="muted">Nenhum disparo com esse mínimo de dias comprimido.</td></tr></tbody>';return;}
-    t.innerHTML=`<thead><tr><th>Data</th><th>Direção</th><th>Dias comprimido</th><th>Percentil banda</th><th>Resultado ${H}d</th><th>Expandiu</th></tr></thead><tbody>`+
-      fires.map(f=>{const r=f.fwd["r"+H],s=f.fwd["s"+H];
-        const res=f.fwd.scored?`<b class="${r>=0?'pos':'neg'}">${r>=0?'+':''}${r.toFixed(1)}%</b> <span class="${s>0?'pos':'neg'}">${s>0?'✓':'✗'}</span>`:'<span class="muted">recente</span>';
-        return `<tr><td>${f.date}</td><td class="${f.dir==='up'?'pos':'neg'}">${f.dir==='up'?'▲ alta':'▼ baixa'}</td>
-          <td>${f.days}</td><td>${f.bw_pct==null?"—":f.bw_pct+"º"}</td><td>${res}</td>
-          <td>${f.fwd.scored?(f.fwd.expanded?'<span class="pos">sim</span>':'<span class="muted">não</span>'):'—'}</td></tr>`;}).join("")+"</tbody>";
+    const cell=v=>v==null?'<td class="muted">—</td>':`<td class="${v>0?'pos':'neg'}">${v>0?'+':''}${v.toFixed(1)}%</td>`;
+    t.innerHTML=`<thead><tr><th>Data</th><th>Direção</th><th>Dias compr.</th><th>Percentil</th>${HS.map(h=>`<th>${h}d</th>`).join("")}<th>Expandiu</th></tr></thead><tbody>`+
+      fires.map(f=>`<tr><td>${f.date}</td><td class="${f.dir==='up'?'pos':'neg'}">${f.dir==='up'?'▲ alta':'▼ baixa'}</td>
+        <td>${f.days}</td><td>${f.bw_pct==null?"—":f.bw_pct+"º"}</td>${HS.map(h=>cell(f.fwd["s"+h])).join("")}
+        <td>${f.fwd.scored?(f.fwd.expanded?'<span class="pos">sim</span>':'<span class="muted">não</span>'):'—'}</td></tr>`).join("")+"</tbody>";
   }
 
   /* ---------- Tabela (screening) ---------- */
