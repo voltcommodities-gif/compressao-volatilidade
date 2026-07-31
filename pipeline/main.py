@@ -50,14 +50,6 @@ def process(ticker, ind, rs_pct):
             else:
                 oc = "aberto" if endw >= b + 1 + 60 else "sem_dados"
             s["fwd"]["outcome"] = oc
-    live = next((s for s in reversed(setups) if s["status"] == "em_formacao"), None)
-    recent = next((s for s in reversed(setups) if s["status"] == "rompeu" and s["brk_i"] >= n - 10), None)
-    if live:
-        state = "em_formacao"; ref = live
-    elif recent:
-        state = "rompeu"; ref = recent
-    else:
-        state = "nenhum"; ref = None
 
     panel = dict(
         dates=dates,
@@ -69,17 +61,13 @@ def process(ticker, ind, rs_pct):
         vol50=_ri(ind["vol50"].to_numpy()),
         setups=setups,
     )
+    # o STATE por ativo (em formação / rompeu / nenhum) é derivado no painel,
+    # porque depende dos FILTROS de qualidade que o usuário liga/desliga.
     screen = dict(
         ticker=ticker, name=ticker.replace(".SA", ""),
         last_price=round(float(close[-1]), 2), last_date=dates[-1],
-        state=state, stage2=bool(ind["stage2"].iloc[-1]),
-        rs=(ref["rs"] if ref else (None if np.isnan(rs_pct.iloc[-1]) else round(float(rs_pct.iloc[-1])))),
-        n_contractions=(ref["n_contractions"] if ref else None),
-        depths=(ref["depths"] if ref else None),
-        last_depth=(ref["depths"][-1] if ref else None),
-        pivot=(ref["pivot"] if ref else None),
-        dist_pivot=(round((ref["pivot"] / float(close[-1]) - 1) * 100, 2) if ref else None),
-        n_setups=len(setups),
+        n_setups=len(setups), stage2_today=bool(ind["stage2"].iloc[-1]),
+        rs_today=(None if np.isnan(rs_pct.iloc[-1]) else round(float(rs_pct.iloc[-1]))),
     )
     return panel, screen
 
@@ -137,10 +125,6 @@ def main(argv=None):
         order.append(t)
 
     base = baseline([np.array(data[t]["close"], float) for t in order])
-    prio = {"em_formacao": 0, "rompeu": 1, "nenhum": 2}
-    order.sort(key=lambda t: (prio[data[t]["screen"]["state"]],
-                              data[t]["screen"]["dist_pivot"] if data[t]["screen"]["dist_pivot"] is not None else 999))
-
     payload = dict(
         meta=dict(start=args.start, end=args.end,
                   generated=datetime.today().strftime("%Y-%m-%d %H:%M"),
