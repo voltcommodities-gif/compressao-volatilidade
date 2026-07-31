@@ -235,6 +235,7 @@
       <div class="statline">
         <span class="s">Setup ${badge}</span>
         <span class="s">Tendência ${sc.stage2?'<span class="badge s2">Stage 2 ✓</span>':'<span class="badge ns2">fora de Stage 2</span>'}</span>
+        <span class="s">Força relativa (RS) <b class="${sc.rs!=null&&sc.rs>=70?'pos':''}">${sc.rs==null?"—":sc.rs+"º"}</b></span>
         ${sc.depths?`<span class="s">Contrações <b class="contr">${contrStr(sc.depths)}</b></span>`:""}
         ${sc.pivot?`<span class="s">Pivô <b>${sc.pivot}</b> ${sc.dist_pivot!=null?`(${sc.dist_pivot>=0?'faltam +':''}${fmtN(sc.dist_pivot,1)}%)`:""}</span>`:""}
         <span class="s">VCPs no histórico <b>${sets.length}</b></span>
@@ -295,8 +296,9 @@
     if(!sets.length){t.innerHTML='<tbody><tr><td class="muted">Nenhuma base com esse mínimo de contrações.</td></tr></tbody>';return;}
     const stTxt={rompeu:'<span class="pos">rompeu</span>',em_formacao:'<span style="color:var(--live)">em formação</span>',falhou:'<span class="neg">falhou</span>'};
     const cell=v=>v==null?'<td class="muted">—</td>':`<td class="${v>0?'pos':'neg'}">${v>0?'+':''}${v.toFixed(1)}%</td>`;
-    t.innerHTML=`<thead><tr><th>Base</th><th>Status</th><th>Contrações</th><th>Pivô</th><th>Volume</th>${HS.map(h=>`<th>${h}d</th>`).join("")}</tr></thead><tbody>`+
+    t.innerHTML=`<thead><tr><th>Base</th><th>Status</th><th>RS</th><th>Contrações</th><th>Pivô</th><th>Vol. romp.</th>${HS.map(h=>`<th>${h}d</th>`).join("")}</tr></thead><tbody>`+
       sets.map(s=>`<tr><td>${s.base_date}</td><td>${stTxt[s.status]||s.status}</td>
+        <td>${s.rs==null?"—":s.rs+"º"}</td>
         <td class="contr">${s.n_contractions}C · ${contrStr(s.depths)}</td><td>${s.pivot}</td>
         <td>${s.brk_i==null?"—":(s.vol_ok?'<span class="pos">✓ forte</span>':'<span class="muted">fraco</span>')}</td>
         ${HS.map(h=>cell(s.fwd&&s.fwd.scored?s.fwd["r"+h]:null)).join("")}</tr>`).join("")+"</tbody>";
@@ -317,6 +319,7 @@
       {k:"last_price",t:"Preço",fmt:r=>numBR.format(r.last_price)},
       {k:"state",t:"Setup",fmt:r=>r.state==="em_formacao"?`<span class="badge live">em formação · ${r.n_contractions}C</span>`:r.state==="rompeu"?'<span class="badge brk">rompeu</span>':'<span class="badge no">—</span>',sv:r=>SPRIO[r.state]*1000+(r.dist_pivot||0)},
       {k:"stage2",t:"Stage 2",fmt:r=>r.stage2?'<span class="pos">✓</span>':'<span class="muted">—</span>',sv:r=>r.stage2?0:1},
+      {k:"rs",t:"RS",fmt:r=>r.rs==null?"—":`<b class="${r.rs>=70?'pos':''}">${r.rs}º</b>`,sv:r=>r.rs==null?-1:r.rs},
       {k:"depths",t:"Contrações",fmt:r=>r.depths?`<span class="contr">${contrStr(r.depths)}</span>`:"—",sv:r=>r.last_depth==null?999:r.last_depth},
       {k:"dist_pivot",t:"Dist. pivô",fmt:r=>r.dist_pivot==null?"—":(r.dist_pivot<=0?'<span class="pos">rompeu</span>':"+"+fmtN(r.dist_pivot,1)+"%"),sv:r=>r.dist_pivot==null?999:r.dist_pivot},
       {k:"n_setups",t:"VCPs",fmt:r=>r.n_setups},
@@ -341,18 +344,20 @@
       <div class="card prose">
         <p class="lead">O <b>VCP (Volatility Contraction Pattern)</b> é uma <b>base</b> que se forma dentro de uma tendência de alta forte. O preço faz uma série de correções <b>cada vez menores</b> (as "contrações"), enquanto a oferta de vendedores seca — até romper num <b>ponto de pivô</b> e continuar subindo.</p>
 
-        <h3>1. Tendência prévia (Stage 2)</h3>
-        <p>O VCP só vale numa <b>tendência de alta confirmada</b>. Este painel exige o "trend template" de Minervini: preço acima das <b>MM50, MM150 e MM200</b>, com <b>MM50 &gt; MM150 &gt; MM200</b>, todas <b>subindo</b>, e o preço perto da máxima de 52 semanas (≥30% acima da mínima, ≤25% abaixo da máxima).</p>
+        <h3>1. Tendência prévia (Stage 2) + Força Relativa</h3>
+        <p>O VCP só vale numa <b>tendência de alta confirmada</b>. Exijo o "trend template" de Minervini: preço acima das <b>MM50, MM150 e MM200</b>, com <b>MM50 &gt; MM150 &gt; MM200</b>, todas <b>subindo</b>, e o preço perto da máxima de 52 semanas (≥30% acima da mínima, ≤25% abaixo da máxima).</p>
+        <p>Além disso, o ativo precisa ser um <b>líder</b>: exijo <b>Força Relativa (RS) ≥ 70º percentil</b> — a performance ponderada (mais peso nos últimos 3 meses, estilo IBD) tem que estar entre as <b>30% melhores do universo</b> na data do pivô.</p>
 
         <h3>2. As contrações (o coração do padrão)</h3>
         <ul>
-          <li>Uma sequência de correções em que <b>cada uma é menor que a anterior</b> — Minervini diz que costumam ser ~<b>metade</b> da anterior (ex.: 25% → 12% → 6%).</li>
-          <li><b>Fundos ascendentes</b> (higher lows): cada recuo termina mais alto — sinal de acumulação.</li>
-          <li>Normalmente <b>3–4 contrações</b> (2 em mercado forte); a última bem apertada (<b>3–8%</b>).</li>
+          <li><b>Preço:</b> cada correção é <b>menor que a anterior</b> (Minervini: ~metade; ex.: 25% → 12% → 6%). A primeira até ~35%, a <b>última apertada (≤ 10%)</b>.</li>
+          <li><b>Fundos ascendentes</b> (higher lows): cada recuo termina mais alto — acumulação.</li>
+          <li><b>Tempo:</b> as contrações também <b>encurtam em duração</b> (a última mais curta que a primeira).</li>
+          <li>Mínimo de <b>2 contrações</b> (ajustável; 3–4 é o padrão).</li>
         </ul>
 
-        <h3>3. Volume secando</h3>
-        <p>Durante os recuos o <b>volume diminui</b> (a oferta some); nos repiques, aumenta. No <b>rompimento</b>, o ideal é volume <b>40–50% acima da média</b> (participação institucional). O painel marca o rompimento como "com volume" quando ≥ 1,5× a média de 50 dias.</p>
+        <h3>3. Volume secando (exigido)</h3>
+        <p>Exijo que o <b>volume médio no terço final da base seja menor que no terço inicial</b> (a oferta secando). No <b>rompimento</b>, o ideal é volume <b>40–50% acima da média</b> — marco como "forte" quando ≥ 1,5× a média de 50 dias (mostrado, mas não obrigatório para listar o rompimento).</p>
 
         <h3>4. Pivô e compra</h3>
         <p>O <b>pivô</b> é o <b>topo da última (menor) contração</b>. A compra é no <b>rompimento do pivô</b>; o <b>stop</b> fica ~<b>7–8%</b> abaixo. O alvo aqui é medido como a <b>altura da base</b> projetada a partir do pivô.</p>

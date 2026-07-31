@@ -23,6 +23,11 @@ def compute_all(df: pd.DataFrame) -> pd.DataFrame:
     out["hi52"] = out["high"].rolling(252).max()
     out["lo52"] = out["low"].rolling(252).min()
 
+    # força relativa (RS) estilo IBD: performance ponderada (mais peso no 3M).
+    # O RANK percentil entre os ativos é calculado no main (transversal por data).
+    r = lambda k: c / c.shift(k) - 1.0
+    out["rs_raw"] = 0.4 * r(63) + 0.2 * r(126) + 0.2 * r(189) + 0.2 * r(252)
+
     s50, s150, s200 = out["sma50"], out["sma150"], out["sma200"]
     # trend template de Minervini (Stage 2), versão baseada em médias/52 semanas
     rising = lambda s, k=22: s > s.shift(k)

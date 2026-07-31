@@ -30,12 +30,8 @@ def _ri(a):
     return [None if (v is None or (isinstance(v, float) and np.isnan(v))) else int(v) for v in a]
 
 
-def process(ticker, start, end, use_cache):
-    df = load_ohlcv(ticker, start, end, use_cache=use_cache)
-    if df is None or len(df) < 260:
-        return None, None
-    ind = compute_all(df)
-    setups = detect_vcp(ind, order=ORDER)
+def process(ticker, ind, rs_pct):
+    setups = detect_vcp(ind, rs_pct=rs_pct.to_numpy(float), order=ORDER)
     dates = [d.strftime("%Y-%m-%d") for d in ind.index]
     n = len(dates)
     close = ind["close"].to_numpy(float)
@@ -77,6 +73,7 @@ def process(ticker, start, end, use_cache):
         ticker=ticker, name=ticker.replace(".SA", ""),
         last_price=round(float(close[-1]), 2), last_date=dates[-1],
         state=state, stage2=bool(ind["stage2"].iloc[-1]),
+        rs=(ref["rs"] if ref else (None if np.isnan(rs_pct.iloc[-1]) else round(float(rs_pct.iloc[-1])))),
         n_contractions=(ref["n_contractions"] if ref else None),
         depths=(ref["depths"] if ref else None),
         last_depth=(ref["depths"][-1] if ref else None),
@@ -114,14 +111,27 @@ def main(argv=None):
     p.add_argument("--no-cache", action="store_true")
     args = p.parse_args(argv)
 
+    import pandas as pd
     tickers = read_tickers(args.tickers)
     log.info("Tickers: %s", ", ".join(tickers))
-    data, order = {}, []
+
+    # fase 1: baixa e calcula indicadores de todos
+    inds = {}
     for t in tickers:
-        log.info("Processando %s ...", t)
-        panel, screen = process(t, args.start, args.end, use_cache=not args.no_cache)
-        if panel is None:
-            continue
+        log.info("Baixando %s ...", t)
+        df = load_ohlcv(t, args.start, args.end, use_cache=not args.no_cache)
+        if df is not None and len(df) >= 260:
+            inds[t] = compute_all(df)
+
+    # RS transversal: percentil da força relativa entre os ativos, por data
+    rs_mat = pd.DataFrame({t: inds[t]["rs_raw"] for t in inds})
+    rs_pct_mat = rs_mat.rank(axis=1, pct=True) * 100.0
+
+    # fase 2: detecta o VCP com o RS disponível
+    data, order = {}, []
+    for t in inds:
+        rs_pct = rs_pct_mat[t].reindex(inds[t].index)
+        panel, screen = process(t, inds[t], rs_pct)
         panel["screen"] = screen
         data[t] = panel
         order.append(t)

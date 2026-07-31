@@ -38,14 +38,17 @@ def find_pivots(price: np.ndarray, order: int):
     return alt
 
 
-def detect_vcp(df, order=8, min_contractions=2, first_depth_max=0.35,
-               last_depth_max=0.12, live_window=60, search=180):
+def detect_vcp(df, rs_pct=None, order=8, min_contractions=2, first_depth_max=0.35,
+               last_depth_max=0.10, live_window=60, search=180,
+               rs_min=70.0, vdry_max=1.05):
     close = df["close"].to_numpy(float)
     high = df["high"].to_numpy(float)
     low = df["low"].to_numpy(float)
     vol = df["volume"].to_numpy(float)
     vol50 = df["vol50"].to_numpy(float)
     stage2 = df["stage2"].to_numpy(bool)
+    if rs_pct is None:
+        rs_pct = np.full(len(close), np.nan)
     n = len(close)
     piv = find_pivots(close, order)
     # preço de cada pivô = extremo intradiário (topo=high, fundo=low)
@@ -87,16 +90,25 @@ def detect_vcp(df, order=8, min_contractions=2, first_depth_max=0.35,
             continue
         if not stage2[pivot_i]:                  # Stage 2 no pivô
             continue
+        rs_at = float(rs_pct[pivot_i]) if not np.isnan(rs_pct[pivot_i]) else None
+        if rs_at is None or rs_at < rs_min:      # força relativa alta (líder)
+            continue
+        # contração no TEMPO: a última correção deve ser mais curta que a primeira
+        durs = [Ls[i][0] - Hs[i][0] for i in range(len(Ls))]
+        if durs[-1] > durs[0]:
+            continue
 
         base_lo = min(l[1] for l in Ls)
         base_i0 = Hs[0][0]
-        # volume secando: 1/3 final da base vs. 1/3 inicial
+        # volume secando: 1/3 final da base vs. 1/3 inicial (exigido)
         seg = vol[base_i0:pivot_i + 1]
         vdry = None
         if len(seg) >= 6:
             a, b = seg[:len(seg) // 3], seg[-len(seg) // 3:]
             if a.mean() > 0:
                 vdry = round(float(b.mean() / a.mean()), 2)
+        if vdry is None or vdry > vdry_max:      # volume tem que estar secando
+            continue
 
         # rompimento acionável: 1º fechamento > pivô, a partir do pivô confirmado
         start = pivot_i + order
@@ -133,8 +145,8 @@ def detect_vcp(df, order=8, min_contractions=2, first_depth_max=0.35,
         setups.append(dict(
             points=[dict(i=int(h[0]), k="H") for h in Hs] + [dict(i=int(l[0]), k="L") for l in Ls],
             highs=[int(h[0]) for h in Hs], lows=[int(l[0]) for l in Ls],
-            depths=depths, n_contractions=len(Ls),
-            pivot_i=int(pivot_i), pivot=round(pivot_p, 2),
+            depths=depths, durations=[int(x) for x in durs], n_contractions=len(Ls),
+            rs=round(rs_at), pivot_i=int(pivot_i), pivot=round(pivot_p, 2),
             base_lo=round(base_lo, 2), stop=round(pivot_p * 0.92, 2),
             target=round(pivot_p + (pivot_p - base_lo), 2),   # alvo ~ altura da base
             vol_dry=vdry, vol_ok=bool(vol_ok),
