@@ -1,6 +1,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Compressão de Volatilidade — Screening</title>
+<title>VCP — Contração de Volatilidade (Minervini)</title>
 <style>
   :root{
     color-scheme: light;
@@ -9,52 +9,47 @@
     --page:#eef0f3; --surface:#ffffff; --surface-2:#f7f8fa;
     --ink:#0e131a; --secondary:#535b66; --muted:#8a919c;
     --grid:#e6e8ec; --axis:#cfd3da; --border:rgba(14,19,26,.10);
-    --accent:#184f95; --line:#2a78d6; --kc:#8a919c;
+    --accent:#184f95; --ma50:#2a78d6; --ma150:#c47d1a; --ma200:#9aa1ac;
     --good:#0a8f30; --good-bg:rgba(10,143,48,.10);
     --bad:#cf3b3b; --bad-bg:rgba(207,59,59,.10);
-    --squeeze:#c47d1a; --squeeze-bg:rgba(196,125,26,.16);
-    --band:rgba(42,120,214,.10);
+    --live:#c47d1a; --live-bg:rgba(196,125,26,.16);
     --shadow:0 1px 2px rgba(14,19,26,.05), 0 8px 24px -16px rgba(14,19,26,.18);
   }
   @media (prefers-color-scheme: dark){:root:where(:not([data-theme="light"])){
     color-scheme: dark;
     --page:#0b0d10; --surface:#14181d; --surface-2:#1b2026; --ink:#f0f2f5;
     --secondary:#aeb6c1; --muted:#7d858f; --grid:#242a31; --axis:#333b44;
-    --border:rgba(255,255,255,.10); --accent:#6aa6f0; --line:#3987e5; --kc:#7d858f;
+    --border:rgba(255,255,255,.10); --accent:#6aa6f0; --ma50:#3987e5; --ma150:#e0a94a; --ma200:#6b7280;
     --good:#28b14c; --good-bg:rgba(40,177,76,.14);
     --bad:#e26a6a; --bad-bg:rgba(226,106,106,.14);
-    --squeeze:#e0a94a; --squeeze-bg:rgba(224,169,74,.18); --band:rgba(57,135,229,.13);
+    --live:#e0a94a; --live-bg:rgba(224,169,74,.18);
     --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -18px rgba(0,0,0,.7);}}
   :root[data-theme="dark"]{color-scheme: dark;
     --page:#0b0d10; --surface:#14181d; --surface-2:#1b2026; --ink:#f0f2f5;
     --secondary:#aeb6c1; --muted:#7d858f; --grid:#242a31; --axis:#333b44;
-    --border:rgba(255,255,255,.10); --accent:#6aa6f0; --line:#3987e5; --kc:#7d858f;
+    --border:rgba(255,255,255,.10); --accent:#6aa6f0; --ma50:#3987e5; --ma150:#e0a94a; --ma200:#6b7280;
     --good:#28b14c; --good-bg:rgba(40,177,76,.14);
     --bad:#e26a6a; --bad-bg:rgba(226,106,106,.14);
-    --squeeze:#e0a94a; --squeeze-bg:rgba(224,169,74,.18); --band:rgba(57,135,229,.13);
+    --live:#e0a94a; --live-bg:rgba(224,169,74,.18);
     --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -18px rgba(0,0,0,.7);}
 
   *{box-sizing:border-box}
   body{margin:0;background:var(--page);color:var(--ink);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased}
   .wrap{max-width:1120px;margin:0 auto;padding:0 20px 80px}
-  header.top{position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--page) 90%,transparent);
-    backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
+  header.top{position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--page) 90%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
   .top-inner{max-width:1120px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px}
   .brand{font-family:var(--mono);font-weight:600;letter-spacing:.02em}
   .brand small{color:var(--muted);font-weight:400;letter-spacing:.1em;text-transform:uppercase;font-size:10.5px;margin-left:8px}
-  .toggle{font-family:var(--mono);font-size:12px;color:var(--secondary);background:var(--surface);
-    border:1px solid var(--border);border-radius:8px;padding:6px 12px;cursor:pointer}
+  .toggle{font-family:var(--mono);font-size:12px;color:var(--secondary);background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px 12px;cursor:pointer}
   .toggle:hover{border-color:var(--accent);color:var(--ink)}
   .tabs-outer{position:sticky;top:49px;z-index:25;background:var(--page);border-bottom:1px solid var(--border)}
   .tabs{max-width:1120px;margin:0 auto;padding:8px 20px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:thin}
   .tabs::-webkit-scrollbar{height:6px}.tabs::-webkit-scrollbar-thumb{background:var(--axis);border-radius:3px}
-  .tab{flex:0 0 auto;font-family:var(--mono);font-size:12.5px;font-weight:600;color:var(--secondary);
-    background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 13px;cursor:pointer;white-space:nowrap}
+  .tab{flex:0 0 auto;font-family:var(--mono);font-size:12.5px;font-weight:600;color:var(--secondary);background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 13px;cursor:pointer;white-space:nowrap}
   .tab:hover{color:var(--ink);border-color:var(--accent)}
   .tab[aria-selected="true"]{background:var(--accent);color:#fff;border-color:var(--accent)}
   .tab.tbl{margin-left:6px}
   .dotc{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:middle}
-
   section.view{padding-top:22px}
   .head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:12px}
   .head .title{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
@@ -68,9 +63,10 @@
   .statline .s{font-size:13px;color:var(--secondary)}
   .statline .s b{color:var(--ink);font-variant-numeric:tabular-nums}
   .badge{font-family:var(--mono);font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px}
-  .badge.sq{background:var(--squeeze-bg);color:var(--squeeze)}
-  .badge.fire{background:var(--accent);color:#fff}
-  .badge.norm{background:var(--surface-2);color:var(--muted)}
+  .badge.live{background:var(--live-bg);color:var(--live)}
+  .badge.brk{background:var(--good-bg);color:var(--good)}
+  .badge.no{background:var(--surface-2);color:var(--muted)}
+  .badge.s2{background:var(--good-bg);color:var(--good)} .badge.ns2{background:var(--surface-2);color:var(--muted)}
   .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 20px 14px;box-shadow:var(--shadow);margin-bottom:16px}
   .card h3{font-size:14px;font-weight:620;margin-bottom:4px}
   .card .sub{font-size:12.5px;color:var(--muted);margin-bottom:12px}
@@ -78,42 +74,35 @@
   .legend .it{display:inline-flex;align-items:center;gap:6px}
   .swatch{width:14px;height:3px;border-radius:2px;display:inline-block}
   .swatch.dash{background:repeating-linear-gradient(90deg,currentColor 0 5px,transparent 5px 9px)}
-  .swatch.box{width:13px;height:11px;border-radius:3px}
-  .swatch.up,.swatch.down{width:0;height:0;background:none}
-  .swatch.up{border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:8px solid currentColor}
-  .swatch.down{border-left:5px solid transparent;border-right:5px solid transparent;border-top:8px solid currentColor}
+  .swatch.dot{width:9px;height:9px;border-radius:50%}
+  .swatch.up{width:0;height:0;background:none;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:8px solid currentColor}
   .chart-host{width:100%;position:relative}
   svg{display:block;width:100%;height:auto;overflow:visible}
-  .tt{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--border);border-radius:9px;
-    padding:8px 10px;font-size:12px;box-shadow:var(--shadow);opacity:0;transition:opacity .08s;font-variant-numeric:tabular-nums;z-index:5;min-width:140px}
+  .tt{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:8px 10px;font-size:12px;box-shadow:var(--shadow);opacity:0;transition:opacity .08s;font-variant-numeric:tabular-nums;z-index:5;min-width:150px}
   .tt .d{font-family:var(--mono);color:var(--muted);font-size:11px;margin-bottom:5px}
   .tt .r{display:flex;justify-content:space-between;gap:14px}
   .tt .r span:first-child{display:inline-flex;align-items:center;gap:6px;color:var(--secondary)}.tt .r b{color:var(--ink)}
   .table-host{overflow-x:auto;border:1px solid var(--border);border-radius:14px;background:var(--surface);box-shadow:var(--shadow)}
   table{border-collapse:collapse;width:100%;font-size:13px}
-  thead th{position:sticky;top:0;background:var(--surface-2);text-align:right;padding:10px 13px;font-family:var(--mono);
-    font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);cursor:pointer;white-space:nowrap;border-bottom:1px solid var(--border);user-select:none}
+  thead th{position:sticky;top:0;background:var(--surface-2);text-align:right;padding:10px 13px;font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);cursor:pointer;white-space:nowrap;border-bottom:1px solid var(--border);user-select:none}
   thead th:first-child,tbody td:first-child{text-align:left}
   thead th.up::after{content:" ▲";color:var(--accent)}thead th.down::after{content:" ▼";color:var(--accent)}
   tbody td{padding:9px 13px;text-align:right;border-bottom:1px solid var(--grid);font-variant-numeric:tabular-nums;white-space:nowrap}
   tbody tr:hover{background:var(--surface-2)}tbody tr:last-child td{border-bottom:0}
-  tbody tr.clickable{cursor:pointer} tbody tr.sqrow td:first-child{box-shadow:inset 3px 0 0 var(--squeeze)}
-  td.tk{font-weight:600;font-family:var(--mono)}
+  tbody tr.clickable{cursor:pointer} tbody tr.liverow td:first-child{box-shadow:inset 3px 0 0 var(--live)}
+  td.tk{font-weight:600;font-family:var(--mono)} .contr{font-family:var(--mono);font-size:11.5px}
   .pos{color:var(--good)} .neg{color:var(--bad)} .muted{color:var(--muted)}
   .metric-name{font-weight:600;color:var(--ink)}
   .rng{display:flex;flex-direction:column;gap:5px}.rng .rl{font-family:var(--mono);font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
-  input[type=range]{width:160px;accent-color:var(--accent)}
+  input[type=range]{width:150px;accent-color:var(--accent)}
   .note{background:color-mix(in srgb,var(--accent) 7%,var(--surface));border:1px solid var(--border);border-radius:12px;padding:12px 16px;font-size:12.5px;color:var(--secondary);margin:20px 0 0}
   .note b{color:var(--ink)}
   .prose{max-width:780px}
   .prose .lead{font-size:15px;color:var(--ink);margin:0 0 6px}
   .prose h3{font-size:15px;font-weight:660;margin:2px 0 6px}
   .prose p{font-size:13.5px;color:var(--secondary);margin:7px 0}
-  .prose ul{font-size:13.5px;color:var(--secondary);margin:7px 0;padding-left:20px}
-  .prose li{margin:5px 0}
-  .prose b{color:var(--ink)} .prose .pos{color:var(--good)} .prose .neg{color:var(--bad)}
-  .prose code{font-family:var(--mono);font-size:12px;background:var(--surface-2);padding:1px 6px;border-radius:5px;color:var(--ink)}
-  .prose .formula{font-family:var(--mono);font-size:12.5px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;margin:8px 0;color:var(--ink);overflow-x:auto}
+  .prose ul{font-size:13.5px;color:var(--secondary);margin:7px 0;padding-left:20px}.prose li{margin:5px 0}
+  .prose b{color:var(--ink)} .prose code{font-family:var(--mono);font-size:12px;background:var(--surface-2);padding:1px 6px;border-radius:5px;color:var(--ink)}
   .foot{color:var(--muted);font-size:12px;text-align:center;margin-top:24px}
   @media (max-width:720px){ .head h2{font-size:22px} }
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
@@ -121,7 +110,7 @@
 
 <header class="top">
   <div class="top-inner">
-    <div class="brand">◧ COMPRESSÃO DE VOLATILIDADE <small>Bollinger Squeeze</small></div>
+    <div class="brand">◧ VCP <small>Contração de Volatilidade · Minervini</small></div>
     <button class="toggle" id="themeBtn" aria-label="Alternar tema">◐ Tema</button>
   </div>
 </header>
@@ -136,35 +125,28 @@
   const DATA=P.data, TICKERS=P.tickers, META=P.meta, SCREEN=P.screen, BASE=META.baseline;
   const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
   const numBR=new Intl.NumberFormat("pt-BR",{maximumFractionDigits:2});
-  const fmtPct=(x,d=2)=>x==null?"—":(x>=0?"+":"")+x.toFixed(d)+"%";
   const fmtN=(x,d=1)=>x==null?"—":x.toFixed(d);
+  const contrStr=d=>d?d.map(x=>x+"%").join(" → "):"—";
 
-  const ALLFIRES=[]; TICKERS.forEach(t=>DATA[t].fires.forEach(f=>ALLFIRES.push(Object.assign({tk:t},f))));
-  let state={ticker:TICKERS[0], range:"3A", pscale:"lin", minDays:3, horizon:20};
+  const ALL=[]; TICKERS.forEach(t=>DATA[t].setups.forEach(s=>ALL.push(Object.assign({tk:t},s))));
+  let state={ticker:TICKERS[0], range:"3A", pscale:"lin", minC:2, horizon:20};
 
   /* ---------- motor SVG ---------- */
   const ns="http://www.w3.org/2000/svg";
   const el=(t,a)=>{const e=document.createElementNS(ns,t);for(const k in a)e.setAttribute(k,a[k]);return e;};
   function niceTicks(mn,mx,n){const sp=mx-mn||1,s0=sp/n,mg=Math.pow(10,Math.floor(Math.log10(s0)));
-    const nm=s0/mg,st=(nm<1.5?1:nm<3?2:nm<7?5:10)*mg,lo=Math.floor(mn/st)*st,o=[];
-    for(let v=lo;v<=mx+st*.5;v+=st)if(v>=mn-1e-9)o.push(v);return o;}
+    const nm=s0/mg,st=(nm<1.5?1:nm<3?2:nm<7?5:10)*mg,lo=Math.floor(mn/st)*st,o=[];for(let v=lo;v<=mx+st*.5;v+=st)if(v>=mn-1e-9)o.push(v);return o;}
   function tsChart(host,tt,cfg){
     host.querySelectorAll("svg").forEach(s=>s.remove());
     const W=host.clientWidth||820,H=cfg.height||300,padL=cfg.padL||54,padR=16,padT=10,padB=24;
     const svg=el("svg",{viewBox:`0 0 ${W} ${H}`});host.appendChild(svg);
     const iw=W-padL-padR,ih=H-padT-padB,N=cfg.dates.length;
     let vmin=Infinity,vmax=-Infinity;const scan=v=>{if(v!=null&&isFinite(v)){if(v<vmin)vmin=v;if(v>vmax)vmax=v;}};
-    cfg.lines.forEach(l=>l.vals.forEach(scan)); if(cfg.band){cfg.band.hi.forEach(scan);cfg.band.lo.forEach(scan);}
+    cfg.lines.forEach(l=>l.vals.forEach(scan)); if(cfg.bars)cfg.bars.vals.forEach(scan);
     const log=cfg.log,tY=v=>log?Math.log10(Math.max(v,1e-6)):v;
     let lo=cfg.ymin!=null?cfg.ymin:tY(vmin), hi=cfg.ymax!=null?cfg.ymax:tY(vmax);
-    const _pad=(hi-lo)*.08||1; if(cfg.ymin==null)lo-=_pad; if(cfg.ymax==null)hi+=_pad;
+    const _p=(hi-lo)*.08||1; if(cfg.ymin==null)lo-=_p; if(cfg.ymax==null)hi+=_p;
     const X=i=>padL+(N<=1?0:i/(N-1)*iw),Y=v=>padT+ih-(tY(v)-lo)/((hi-lo)||1)*ih;
-    if(cfg.band){let d="";const {hi:hv,lo:lv}=cfg.band;let st=false;
-      for(let i=0;i<N;i++){if(hv[i]==null)continue;d+=(st?"L":"M")+X(i).toFixed(1)+" "+Y(hv[i]).toFixed(1)+" ";st=true;}
-      for(let i=N-1;i>=0;i--){if(lv[i]==null)continue;d+="L"+X(i).toFixed(1)+" "+Y(lv[i]).toFixed(1)+" ";}
-      if(d)svg.appendChild(el("path",{d:d+"Z",fill:css("--band"),stroke:"none"}));}
-    if(cfg.shade){let s=null;for(let i=0;i<=N;i++){const on=i<N&&cfg.shade[i];
-      if(on&&s===null)s=i;else if(!on&&s!==null){svg.appendChild(el("rect",{x:X(s),y:padT,width:Math.max(1,X(i-1)-X(s)),height:ih,fill:css("--squeeze-bg")}));s=null;}}}
     (cfg.yticks||niceTicks(lo,hi,5)).forEach(v=>{const y=Y(v);
       svg.appendChild(el("line",{x1:padL,x2:W-padR,y1:y,y2:y,stroke:css("--grid"),"stroke-width":1}));
       const t=el("text",{x:padL-8,y:y+3.5,"text-anchor":"end",fill:css("--muted"),"font-size":10.5,"font-family":css("--mono")});t.textContent=cfg.yfmt(v);svg.appendChild(t);});
@@ -172,11 +154,16 @@
     Object.entries(yrs).forEach(([y,i])=>{const x=X(i);
       svg.appendChild(el("line",{x1:x,x2:x,y1:padT,y2:padT+ih,stroke:css("--grid"),"stroke-width":1,opacity:.5}));
       const t=el("text",{x,y:H-8,"text-anchor":"middle",fill:css("--muted"),"font-size":10.5,"font-family":css("--mono")});t.textContent=y;svg.appendChild(t);});
+    if(cfg.bars){const y0=Y(Math.max(lo,0)),bw=Math.max(.6,iw/N*.8);
+      cfg.bars.vals.forEach((v,i)=>{if(v==null)return;const y=Y(v);svg.appendChild(el("rect",{x:X(i)-bw/2,y:Math.min(y,y0),width:bw,height:Math.abs(y-y0),fill:cfg.bars.colors[i],opacity:.9}));});}
+    (cfg.segments||[]).forEach(sg=>{const y=Y(sg.y);svg.appendChild(el("line",{x1:X(sg.i0),x2:X(sg.i1),y1:y,y2:y,stroke:sg.color,"stroke-width":sg.w||1,"stroke-dasharray":sg.dash||"4 3"}));});
     cfg.lines.forEach(l=>{let d="",st=false;l.vals.forEach((v,i)=>{if(v==null){st=false;return;}d+=(st?"L":"M")+X(i).toFixed(1)+" "+Y(v).toFixed(1)+" ";st=true;});
       svg.appendChild(el("path",{d,fill:"none",stroke:l.color,"stroke-width":l.width||1.4,"stroke-dasharray":l.dash||"none","stroke-linejoin":"round"}));});
-    (cfg.markers||[]).forEach(mk=>{const base=cfg.markerVals||cfg.lines[0].vals;const b=base[mk.idx];if(b==null)return;
-      const x=X(mk.idx),y=Y(b),c=mk.dir>0?css("--good"):css("--bad"),s=5;
-      const p=mk.dir>0?`M${x} ${y-s*2.4} L${x-s} ${y-s*.4} L${x+s} ${y-s*.4} Z`:`M${x} ${y+s*2.4} L${x-s} ${y+s*.4} L${x+s} ${y+s*.4} Z`;
+    (cfg.dots||[]).forEach(dt=>{const b=(cfg.markerVals||cfg.lines[0].vals)[dt.idx];if(b==null)return;
+      svg.appendChild(el("circle",{cx:X(dt.idx),cy:Y(b),r:2.8,fill:dt.color,stroke:css("--surface"),"stroke-width":1}));});
+    (cfg.markers||[]).forEach(mk=>{const b=(cfg.markerVals||cfg.lines[0].vals)[mk.idx];if(b==null)return;
+      const x=X(mk.idx),y=Y(b),c=mk.color||(mk.dir>0?css("--good"):css("--bad")),s=5;
+      const p=`M${x} ${y-s*2.4} L${x-s} ${y-s*.4} L${x+s} ${y-s*.4} Z`;
       svg.appendChild(el("path",{d:p,fill:c,stroke:css("--surface"),"stroke-width":1}));});
     const focus=el("line",{x1:0,x2:0,y1:padT,y2:padT+ih,stroke:css("--axis"),"stroke-width":1,opacity:0});svg.appendChild(focus);
     const dots=cfg.lines.map(l=>{const c=el("circle",{r:4,fill:l.color,stroke:css("--surface"),"stroke-width":2,opacity:0});svg.appendChild(c);return c;});
@@ -187,73 +174,75 @@
       let rows="";cfg.lines.forEach((l,k)=>{const v=l.vals[i];if(v==null){dots[k].setAttribute("opacity",0);return;}
         dots[k].setAttribute("cx",X(i));dots[k].setAttribute("cy",Y(v));dots[k].setAttribute("opacity",1);
         rows+=`<div class="r"><span><span class="swatch" style="background:${l.color}"></span>${l.name}</span><b>${cfg.tfmt(v)}</b></div>`;});
-      if(cfg.extra){const e=cfg.extra(i);if(e)rows+=e;}
       tt.innerHTML=`<div class="d">${cfg.dates[i]}</div>${rows}`;tt.style.opacity=1;
-      let tx=(X(i)/sx)+14;if(tx>r.width-160)tx=(X(i)/sx)-tt.offsetWidth-14;tt.style.left=Math.max(0,tx)+"px";tt.style.top="8px";});
+      let tx=(X(i)/sx)+14;if(tx>r.width-170)tx=(X(i)/sx)-tt.offsetWidth-14;tt.style.left=Math.max(0,tx)+"px";tt.style.top="8px";});
     ov.addEventListener("mouseleave",()=>{tt.style.opacity=0;focus.setAttribute("opacity",0);dots.forEach(d=>d.setAttribute("opacity",0));});
   }
 
-  /* ---------- poder preditivo (calculado no cliente) ---------- */
+  /* ---------- poder preditivo (rompimentos VCP) ---------- */
   function predStats(){
-    const H=state.horizon, fires=ALLFIRES.filter(f=>f.days>=state.minDays && f.fwd.scored);
-    const out={};
-    for(const d of ["up","down"]){
-      const g=fires.filter(f=>f.dir===d), sign=d==="up"?1:-1;
-      const s=g.map(f=>f.fwd["s"+H]).filter(v=>v!=null);
-      const exp=g.map(f=>f.fwd.expanded);
-      out[d]={n:g.length,
-        hit:s.length?(s.filter(v=>v>0).length/s.length*100):null,
-        avg:s.length?(s.reduce((a,b)=>a+b,0)/s.length):null,
-        edge:s.length?(s.reduce((a,b)=>a+b,0)/s.length - sign*BASE[H]):null,
-        expand:exp.length?(exp.filter(Boolean).length/exp.length*100):null};
-    }
-    return out;
+    const H=state.horizon, br=ALL.filter(s=>s.status==="rompeu"&&s.n_contractions>=state.minC&&s.fwd.scored);
+    const r=br.map(s=>s.fwd["r"+H]).filter(v=>v!=null);
+    const dec=br.filter(s=>["alvo","stop"].includes(s.fwd.outcome));
+    const wins=dec.filter(s=>s.fwd.outcome==="alvo").length;
+    return {n:br.length,
+      hit:r.length?(r.filter(v=>v>0).length/r.length*100):null,
+      avg:r.length?(r.reduce((a,b)=>a+b,0)/r.length):null,
+      edge:r.length?(r.reduce((a,b)=>a+b,0)/r.length-BASE[H]):null,
+      volok:br.length?(br.filter(s=>s.vol_ok).length/br.length*100):null,
+      target:dec.length?(wins/dec.length*100):null};
   }
   function predPanel(){
-    const H=state.horizon, st=predStats();
+    const H=state.horizon, s=predStats();
     const c=(v,suf="",col=false)=>v==null?'<td class="muted">—</td>':`<td class="${col?(v>=0?'pos':'neg'):''}">${(col&&v>=0?'+':'')}${v.toFixed(col?2:1)}${suf}</td>`;
-    const row=(d,lab)=>{const r=st[d];return `<tr><td class="metric-name">${lab}</td><td>${r.n}</td>${c(r.hit,'%')}${c(r.avg,'%',true)}${c(r.edge,'%',true)}${c(r.expand,'%')}</tr>`;};
     return `<div class="card">
       <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap">
-        <div><h3>Poder preditivo — o squeeze funciona?</h3>
-          <div class="sub">Disparos com ≥ <b>${state.minDays}</b> dias comprimido, medido <b>${H} candles</b> depois. <b>Base</b> ${(BASE[H]>=0?'+':'')}${BASE[H]}%/${H}d. <b>Edge</b> = quanto bate a base. <b>Expandiu</b> = % em que a volatilidade de fato subiu (a mola soltou).</div></div>
+        <div><h3>Poder preditivo — o rompimento do VCP funciona?</h3>
+          <div class="sub">Rompimentos do pivô (compra), com ≥ <b>${state.minC}</b> contrações, medidos <b>${H} candles</b> depois. <b>Base</b> ${(BASE[H]>=0?'+':'')}${BASE[H]}%/${H}d (mercado). <b>Edge</b> = quanto bate a base. <b>Alvo&lt;stop</b> = % que atingiu o alvo (altura da base) antes do stop de 8%.</div></div>
         <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end">
-          <div class="rng"><span class="rl">mín. dias comprimido <b id="mdv">${state.minDays}</b></span><input type="range" id="fMd" min="1" max="20" step="1" value="${state.minDays}"></div>
+          <div class="rng"><span class="rl">mín. contrações <b id="mcv">${state.minC}</b></span><input type="range" id="fMc" min="2" max="5" step="1" value="${state.minC}"></div>
           <div class="seg" role="group" aria-label="Horizonte">${META.horizons.map(h=>`<button data-h="${h}" aria-pressed="${h===H}">${h}d</button>`).join("")}</div>
         </div>
       </div>
-      <div class="table-host"><table><thead><tr><th class="metric-name">Disparo</th><th>n</th><th>Acerto</th><th>Ret. médio</th><th>Edge vs. base</th><th>Expandiu vol.</th></tr></thead>
-        <tbody>${row("up","▲ Alta (rompeu p/ cima)")}${row("down","▼ Baixa (rompeu p/ baixo)")}</tbody></table></div>
-      <div class="sub" style="margin:10px 0 0">Leitura: a compressão prevê muito bem a <b>expansão</b> de volatilidade, mas a <b>direção</b> tem pouco edge — o squeeze avisa que <b>vem um movimento grande</b>, não pra que lado.</div></div>`;
+      <div class="table-host"><table><thead><tr><th class="metric-name">Rompimentos VCP</th><th>n</th><th>Acerto</th><th>Ret. médio</th><th>Edge vs. base</th><th>Alvo&lt;stop</th><th>Com volume</th></tr></thead>
+        <tbody><tr><td class="metric-name">compra no pivô</td><td>${s.n}</td>${c(s.hit,'%')}${c(s.avg,'%',true)}${c(s.edge,'%',true)}${c(s.target,'%')}${c(s.volok,'%')}</tr></tbody></table></div>
+      <div class="sub" style="margin:10px 0 0">O VCP é um padrão de <b>ativos líderes em tendência de alta</b> — em índices e ações grandes, o edge é modesto; ele brilha em ações de forte momentum. Ajuste as contrações mínimas e o horizonte.</div></div>`;
   }
   function bindPred(host){
     host.querySelectorAll("[data-h]").forEach(b=>b.addEventListener("click",()=>{state.horizon=+b.dataset.h;rerender();}));
-    const md=host.querySelector("#fMd");if(md)md.addEventListener("input",e=>{state.minDays=+e.target.value;rerender();});
+    const mc=host.querySelector("#fMc");if(mc)mc.addEventListener("input",e=>{state.minC=+e.target.value;rerender();});
   }
 
   /* ---------- view por ativo ---------- */
   function stockView(){
-    const tk=state.ticker,D=DATA[tk],sc=D.screen||SCREEN.find(s=>s.ticker===tk);
-    const N=D.dates.length,RANGE={"1A":252,"3A":756,"5A":1260,"tudo":N};
-    const start=Math.max(0,N-(RANGE[state.range]||N));
-    const sl=a=>a.slice(start), slStr=s=>s.slice(start).split("").map(Number);
-    const fires=D.fires.filter(f=>f.days>=state.minDays);
-    const mk=fires.filter(f=>f.i>=start).map(f=>({idx:f.i-start,dir:f.dir==="up"?1:-1}));
-    const st=sc.state, badge=st==="comprimido"?`<span class="badge sq">comprimido ${sc.days}d</span>`
-      :st==="disparou"?`<span class="badge fire">disparou</span>`:`<span class="badge norm">normal</span>`;
+    const tk=state.ticker,D=DATA[tk],sc=SCREEN.find(x=>x.ticker===tk),N=D.dates.length;
+    const RANGE={"1A":252,"3A":756,"5A":1260,"tudo":N},start=Math.max(0,N-(RANGE[state.range]||N));
+    const sl=a=>a.slice(start);
+    const sets=D.setups.filter(s=>s.n_contractions>=state.minC);
+    const good=css("--good"),bad=css("--bad"),gray=css("--muted"),live=css("--live");
+    const dots=[],markers=[],segments=[];
+    sets.forEach(s=>{
+      s.highs.forEach(i=>{if(i>=start)dots.push({idx:i-start,color:bad});});
+      s.lows.forEach(i=>{if(i>=start)dots.push({idx:i-start,color:good});});
+      if(s.brk_i!=null&&s.brk_i>=start)markers.push({idx:s.brk_i-start,color:s.vol_ok?good:gray});
+      const i0=Math.max(s.highs[0],start), i1=(s.brk_i!=null?s.brk_i:Math.min(N-1,s.pivot_i+30));
+      if(i1>=start)segments.push({i0:i0-start,i1:i1-start,y:s.pivot,color:s.status==="em_formacao"?live:css("--axis"),dash:"4 3",w:s.status==="em_formacao"?1.4:1});
+    });
+    const st=sc.state, badge=st==="em_formacao"?`<span class="badge live">em formação · ${sc.n_contractions}C</span>`:st==="rompeu"?`<span class="badge brk">rompeu o pivô</span>`:`<span class="badge no">sem setup</span>`;
     const v=document.getElementById("view");
     v.innerHTML=`
       <div class="head"><div class="title"><h2>${tk}</h2><span class="full">${META.start} – ${META.end} · fechamento ajustado</span></div></div>
       <div class="statline">
-        <span class="s">Status ${badge}</span>
-        <span class="s">Largura de banda (percentil) <b>${sc.bw_pct==null?"—":sc.bw_pct+"º"}</b></span>
-        <span class="s">Último disparo <b>${sc.last_fire_date||"—"}</b> ${sc.last_dir?(sc.last_dir==="up"?"▲ alta":"▼ baixa"):""}</span>
-        <span class="s">Disparos (${state.minDays}d+) <b>${fires.length}</b></span>
+        <span class="s">Setup ${badge}</span>
+        <span class="s">Tendência ${sc.stage2?'<span class="badge s2">Stage 2 ✓</span>':'<span class="badge ns2">fora de Stage 2</span>'}</span>
+        ${sc.depths?`<span class="s">Contrações <b class="contr">${contrStr(sc.depths)}</b></span>`:""}
+        ${sc.pivot?`<span class="s">Pivô <b>${sc.pivot}</b> ${sc.dist_pivot!=null?`(${sc.dist_pivot>=0?'faltam +':''}${fmtN(sc.dist_pivot,1)}%)`:""}</span>`:""}
+        <span class="s">VCPs no histórico <b>${sets.length}</b></span>
       </div>
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
-          <div><h3>Preço, Bollinger e Keltner — compressão &amp; disparos</h3>
-            <div class="sub">Faixa azul = Bandas de Bollinger. Tracejado cinza = Canais de Keltner. Área laranja = <b>comprimido</b> (Bollinger dentro do Keltner). ▲ verde / ▼ vermelho = disparo (a mola soltou).</div></div>
+          <div><h3>Preço, médias e bases VCP</h3>
+            <div class="sub">Pontos <span style="color:var(--bad)">●</span> topos / <span style="color:var(--good)">●</span> fundos das contrações · linha tracejada = <b>pivô</b> (nível de compra; laranja = base em formação) · ▲ = rompimento (verde = com volume ≥1,5×).</div></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <div class="seg" role="group" aria-label="Período">${["1A","3A","5A","tudo"].map(r=>`<button data-rg="${r}" aria-pressed="${state.range===r}">${r==="tudo"?"Tudo":r}</button>`).join("")}</div>
             <div class="seg" role="group" aria-label="Escala"><button data-ps="lin" aria-pressed="${state.pscale==="lin"}">Linear</button><button data-ps="log" aria-pressed="${state.pscale==="log"}">Log</button></div>
@@ -261,139 +250,121 @@
         </div>
         <div class="legend">
           <span class="it"><span class="swatch" style="background:var(--ink)"></span>Preço</span>
-          <span class="it"><span class="swatch box" style="background:var(--band)"></span>Bollinger</span>
-          <span class="it"><span class="swatch dash" style="color:var(--kc)"></span>Keltner</span>
-          <span class="it"><span class="swatch box" style="background:var(--squeeze-bg)"></span>Comprimido</span>
-          <span class="it"><span class="swatch up" style="color:var(--good)"></span>Disparo alta</span>
-          <span class="it"><span class="swatch down" style="color:var(--bad)"></span>Disparo baixa</span>
+          <span class="it"><span class="swatch" style="background:var(--ma50)"></span>MM50</span>
+          <span class="it"><span class="swatch" style="background:var(--ma150)"></span>MM150</span>
+          <span class="it"><span class="swatch" style="background:var(--ma200)"></span>MM200</span>
+          <span class="it"><span class="swatch dot" style="background:var(--bad)"></span>topo</span>
+          <span class="it"><span class="swatch dot" style="background:var(--good)"></span>fundo</span>
+          <span class="it"><span class="swatch up" style="color:var(--good)"></span>rompimento</span>
         </div>
         <div class="chart-host" id="hp"><div class="tt" id="tp"></div></div>
       </div>
       <div class="card">
-        <h3>Largura de banda das Bandas de Bollinger</h3>
-        <div class="sub">(banda superior − inferior) ÷ média, em %. Quanto <b>menor</b>, mais comprimida a volatilidade. Área laranja = squeeze on.</div>
-        <div class="chart-host" id="hb"><div class="tt" id="tb"></div></div>
+        <h3>Volume</h3>
+        <div class="sub">Barras destacadas = dias de rompimento. Linha = volume médio de 50 dias. O VCP quer <b>volume secando</b> na base e <b>estourando</b> no rompimento.</div>
+        <div class="chart-host" id="hv"><div class="tt" id="tv"></div></div>
       </div>
       <div class="card">
-        <h3>Últimos disparos</h3>
-        <div class="sub">Disparos com ≥ ${state.minDays} dias comprimido. Colunas <b>5d–60d</b> = retorno <b>na direção prevista</b> (verde = foi na direção; vermelho = contra). "Expandiu" = a volatilidade de fato subiu.</div>
-        <div class="table-host"><table id="firesTable"></table></div>
+        <h3>Bases VCP detectadas</h3>
+        <div class="sub">Contrações (queda de cada topo ao fundo seguinte), pivô, rompimento e o que veio depois (retorno na compra).</div>
+        <div class="table-host"><table id="setTable"></table></div>
       </div>
-      <div class="note"><b>Ferramenta de estudo</b> — Bollinger (20, 2σ) vs. Keltner (20, 1,5×ATR) em dados ajustados. Não é recomendação de investimento.</div>
+      <div class="note"><b>Ferramenta de estudo</b> — VCP de Minervini em dados ajustados. Não é recomendação de investimento.</div>
       <div class="foot">Gerado em ${META.generated} · período ${META.start} a ${META.end}.</div>`;
 
     tsChart(document.getElementById("hp"),document.getElementById("tp"),{
-      dates:sl(D.dates),height:340,log:state.pscale==="log",shade:slStr(D.squeeze),
-      band:{hi:sl(D.bb_up),lo:sl(D.bb_lo)}, markers:mk, markerVals:sl(D.close),
-      lines:[{name:"Preço",vals:sl(D.close),color:css("--ink"),width:1.6},
-             {name:"Bollinger sup.",vals:sl(D.bb_up),color:css("--line"),width:1},
-             {name:"Bollinger inf.",vals:sl(D.bb_lo),color:css("--line"),width:1},
-             {name:"Keltner sup.",vals:sl(D.kc_up),color:css("--kc"),width:1,dash:"4 3"},
-             {name:"Keltner inf.",vals:sl(D.kc_lo),color:css("--kc"),width:1,dash:"4 3"}],
+      dates:sl(D.dates),height:360,log:state.pscale==="log",dots,markers,segments,markerVals:sl(D.close),
+      lines:[{name:"Preço",vals:sl(D.close),color:css("--ink"),width:1.5},
+             {name:"MM50",vals:sl(D.sma50),color:css("--ma50"),width:1},
+             {name:"MM150",vals:sl(D.sma150),color:css("--ma150"),width:1},
+             {name:"MM200",vals:sl(D.sma200),color:css("--ma200"),width:1}],
       yfmt:v=>v.toFixed(v<10?1:0),tfmt:v=>"R$ "+numBR.format(v)});
-    tsChart(document.getElementById("hb"),document.getElementById("tb"),{
-      dates:sl(D.dates),height:150,ymin:0,shade:slStr(D.squeeze),
-      lines:[{name:"Largura de banda",vals:sl(D.bw),color:css("--accent"),width:1.4}],
-      yfmt:v=>v.toFixed(0)+"%",tfmt:v=>v.toFixed(2)+"%",
-      extra:i=>{const p=sl(D.bw_pct)[i];return p==null?"":`<div class="r"><span>percentil</span><b>${p.toFixed(0)}º</b></div>`;}});
-    renderFires(D,fires.slice(-20).reverse());
+    const brk=new Set(sets.filter(s=>s.brk_i!=null).map(s=>s.brk_i));
+    const vcol=sl(D.volume).map((_,k)=>brk.has(start+k)?css("--good"):css("--muted"));
+    tsChart(document.getElementById("hv"),document.getElementById("tv"),{
+      dates:sl(D.dates),height:150,ymin:0,bars:{vals:sl(D.volume),colors:vcol},
+      lines:[{name:"Média 50d",vals:sl(D.vol50),color:css("--ink"),width:1.2}],
+      yfmt:v=>v>=1e6?(v/1e6).toFixed(0)+"M":v>=1e3?(v/1e3).toFixed(0)+"k":v.toFixed(0),
+      tfmt:v=>v>=1e6?(v/1e6).toFixed(1)+"M":v>=1e3?(v/1e3).toFixed(0)+"k":v.toFixed(0)});
+    renderSetups(sets.slice().reverse().slice(0,25));
     v.querySelectorAll("[data-rg]").forEach(b=>b.addEventListener("click",()=>{state.range=b.dataset.rg;stockView();}));
     v.querySelectorAll("[data-ps]").forEach(b=>b.addEventListener("click",()=>{state.pscale=b.dataset.ps;stockView();}));
   }
-  function renderFires(D,fires){
-    const t=document.getElementById("firesTable"),HS=META.horizons;
-    if(!fires.length){t.innerHTML='<tbody><tr><td class="muted">Nenhum disparo com esse mínimo de dias comprimido.</td></tr></tbody>';return;}
+  function renderSetups(sets){
+    const t=document.getElementById("setTable"),HS=META.horizons;
+    if(!sets.length){t.innerHTML='<tbody><tr><td class="muted">Nenhuma base com esse mínimo de contrações.</td></tr></tbody>';return;}
+    const stTxt={rompeu:'<span class="pos">rompeu</span>',em_formacao:'<span style="color:var(--live)">em formação</span>',falhou:'<span class="neg">falhou</span>'};
     const cell=v=>v==null?'<td class="muted">—</td>':`<td class="${v>0?'pos':'neg'}">${v>0?'+':''}${v.toFixed(1)}%</td>`;
-    t.innerHTML=`<thead><tr><th>Data</th><th>Direção</th><th>Dias compr.</th><th>Percentil</th>${HS.map(h=>`<th>${h}d</th>`).join("")}<th>Expandiu</th></tr></thead><tbody>`+
-      fires.map(f=>`<tr><td>${f.date}</td><td class="${f.dir==='up'?'pos':'neg'}">${f.dir==='up'?'▲ alta':'▼ baixa'}</td>
-        <td>${f.days}</td><td>${f.bw_pct==null?"—":f.bw_pct+"º"}</td>${HS.map(h=>cell(f.fwd["s"+h])).join("")}
-        <td>${f.fwd.scored?(f.fwd.expanded?'<span class="pos">sim</span>':'<span class="muted">não</span>'):'—'}</td></tr>`).join("")+"</tbody>";
+    t.innerHTML=`<thead><tr><th>Base</th><th>Status</th><th>Contrações</th><th>Pivô</th><th>Volume</th>${HS.map(h=>`<th>${h}d</th>`).join("")}</tr></thead><tbody>`+
+      sets.map(s=>`<tr><td>${s.base_date}</td><td>${stTxt[s.status]||s.status}</td>
+        <td class="contr">${s.n_contractions}C · ${contrStr(s.depths)}</td><td>${s.pivot}</td>
+        <td>${s.brk_i==null?"—":(s.vol_ok?'<span class="pos">✓ forte</span>':'<span class="muted">fraco</span>')}</td>
+        ${HS.map(h=>cell(s.fwd&&s.fwd.scored?s.fwd["r"+h]:null)).join("")}</tr>`).join("")+"</tbody>";
   }
 
-  /* ---------- Tabela (screening) ---------- */
-  let sortK="state",sortDir=1;
-  const SPRIO={comprimido:0,disparou:1,normal:2};
+  /* ---------- Screening ---------- */
+  let sortK="state",sortDir=1; const SPRIO={em_formacao:0,rompeu:1,nenhum:2};
   function tableView(){
     const v=document.getElementById("view");
     v.innerHTML=predPanel()+`
-      <div class="head"><div class="title"><h2>Screening — compressão de volatilidade</h2>
-        <span class="full">${SCREEN.length} ativos · último pregão ${META.end} · <span class="dotc" style="background:var(--squeeze)"></span>comprimido hoje · clique numa linha</span></div></div>
+      <div class="head"><div class="title"><h2>Screening — VCP (contração de volatilidade)</h2>
+        <span class="full">${SCREEN.length} ativos · ${META.end} · <span class="dotc" style="background:var(--live)"></span>base em formação · clique numa linha</span></div></div>
       <div class="table-host"><table><thead><tr id="thr"></tr></thead><tbody id="tb2"></tbody></table></div>
       <div class="note"><b>Ferramenta de estudo</b>, não é recomendação de investimento.</div>`;
     bindPred(v);
     const C=[
       {k:"name",t:"Ativo",fmt:r=>r.name,cls:"tk",sv:r=>r.name},
       {k:"last_price",t:"Preço",fmt:r=>numBR.format(r.last_price)},
-      {k:"state",t:"Status",fmt:r=>r.state==="comprimido"?`<span class="badge sq">comprimido ${r.days}d</span>`:r.state==="disparou"?'<span class="badge fire">disparou</span>':'<span class="badge norm">normal</span>',sv:r=>SPRIO[r.state]*1000-(r.days||0)},
-      {k:"bw_pct",t:"Percentil banda",fmt:r=>r.bw_pct==null?"—":r.bw_pct+"º",sv:r=>r.bw_pct==null?999:r.bw_pct},
-      {k:"last_dir",t:"Último disparo",fmt:r=>r.last_fire_date?`${r.last_fire_date} ${r.last_dir==='up'?'<span class="pos">▲</span>':'<span class="neg">▼</span>'}`:"—",sv:r=>r.last_fire_date||""},
-      {k:"n_fires",t:"Disparos",fmt:r=>r.n_fires},
+      {k:"state",t:"Setup",fmt:r=>r.state==="em_formacao"?`<span class="badge live">em formação · ${r.n_contractions}C</span>`:r.state==="rompeu"?'<span class="badge brk">rompeu</span>':'<span class="badge no">—</span>',sv:r=>SPRIO[r.state]*1000+(r.dist_pivot||0)},
+      {k:"stage2",t:"Stage 2",fmt:r=>r.stage2?'<span class="pos">✓</span>':'<span class="muted">—</span>',sv:r=>r.stage2?0:1},
+      {k:"depths",t:"Contrações",fmt:r=>r.depths?`<span class="contr">${contrStr(r.depths)}</span>`:"—",sv:r=>r.last_depth==null?999:r.last_depth},
+      {k:"dist_pivot",t:"Dist. pivô",fmt:r=>r.dist_pivot==null?"—":(r.dist_pivot<=0?'<span class="pos">rompeu</span>':"+"+fmtN(r.dist_pivot,1)+"%"),sv:r=>r.dist_pivot==null?999:r.dist_pivot},
+      {k:"n_setups",t:"VCPs",fmt:r=>r.n_setups},
     ];
-    const thr=document.getElementById("thr");
-    thr.innerHTML=C.map(c=>`<th data-k="${c.k}">${c.t}</th>`).join("");
+    const thr=document.getElementById("thr");thr.innerHTML=C.map(c=>`<th data-k="${c.k}">${c.t}</th>`).join("");
     function draw(){
       const col=C.find(c=>c.k===sortK),sv=col.sv||(r=>r[col.k]);
       const rows=SCREEN.slice().sort((a,b)=>{const x=sv(a),y=sv(b);return(typeof x==="string"?x.localeCompare(y):x-y)*sortDir;});
-      document.getElementById("tb2").innerHTML=rows.map(r=>`<tr class="clickable${r.state==='comprimido'?' sqrow':''}" data-tk="${r.ticker}">`+
-        C.map(c=>`<td class="${c.cls||''}">${c.fmt(r)}</td>`).join("")+"</tr>").join("");
+      document.getElementById("tb2").innerHTML=rows.map(r=>`<tr class="clickable${r.state==='em_formacao'?' liverow':''}" data-tk="${r.ticker}">`+C.map(c=>`<td class="${c.cls||''}">${c.fmt(r)}</td>`).join("")+"</tr>").join("");
       thr.querySelectorAll("th").forEach(th=>{th.classList.remove("up","down");if(th.dataset.k===sortK)th.classList.add(sortDir<0?"down":"up");});
       document.querySelectorAll("#tb2 tr").forEach(tr=>tr.addEventListener("click",()=>selectTab(tr.dataset.tk)));
     }
-    thr.querySelectorAll("th").forEach(th=>th.addEventListener("click",()=>{const k=th.dataset.k;if(k===sortK)sortDir*=-1;else{sortK=k;sortDir=(k==="name"||k==="last_dir")?1:1;}draw();}));
+    thr.querySelectorAll("th").forEach(th=>th.addEventListener("click",()=>{const k=th.dataset.k;if(k===sortK)sortDir*=-1;else{sortK=k;sortDir=1;}draw();}));
     draw();
   }
 
-  /* ---------- metodologia ---------- */
+  /* ---------- Metodologia ---------- */
   function methodView(){
     const b20=META.baseline[20];
     document.getElementById("view").innerHTML=`
-      <div class="head"><div class="title"><h2>Metodologia</h2>
-        <span class="full">como este screening identifica e testa a compressão de volatilidade</span></div></div>
+      <div class="head"><div class="title"><h2>Metodologia</h2><span class="full">o VCP de Mark Minervini, passo a passo</span></div></div>
       <div class="card prose">
-        <p class="lead">Este painel procura ações com a <b>volatilidade comprimida</b> — o clássico <b>Bollinger Band Squeeze</b> (também chamado TTM Squeeze). A ideia: quando a oscilação de preço aperta muito, costuma vir um <b>movimento grande</b> em seguida (a "mola" que solta).</p>
+        <p class="lead">O <b>VCP (Volatility Contraction Pattern)</b> é uma <b>base</b> que se forma dentro de uma tendência de alta forte. O preço faz uma série de correções <b>cada vez menores</b> (as "contrações"), enquanto a oferta de vendedores seca — até romper num <b>ponto de pivô</b> e continuar subindo.</p>
 
-        <h3>1. Os indicadores</h3>
+        <h3>1. Tendência prévia (Stage 2)</h3>
+        <p>O VCP só vale numa <b>tendência de alta confirmada</b>. Este painel exige o "trend template" de Minervini: preço acima das <b>MM50, MM150 e MM200</b>, com <b>MM50 &gt; MM150 &gt; MM200</b>, todas <b>subindo</b>, e o preço perto da máxima de 52 semanas (≥30% acima da mínima, ≤25% abaixo da máxima).</p>
+
+        <h3>2. As contrações (o coração do padrão)</h3>
         <ul>
-          <li><b>Bandas de Bollinger (20, 2σ):</b> uma média móvel de 20 dias úteis (a "base") com uma banda acima e outra abaixo, a <b>2 desvios-padrão</b> do preço. Quanto mais o preço oscila, mais largas ficam as bandas.
-            <div class="formula">base = média(fech, 20) · banda = base ± 2 × desvio-padrão(fech, 20)</div></li>
-          <li><b>Canais de Keltner (20, 1,5×ATR):</b> a mesma base, mas com as bordas medidas pela <b>amplitude média real (ATR)</b> em vez do desvio-padrão. O ATR mede o tamanho típico do candle (incluindo gaps).
-            <div class="formula">canal = base ± 1,5 × ATR(20)</div></li>
+          <li>Uma sequência de correções em que <b>cada uma é menor que a anterior</b> — Minervini diz que costumam ser ~<b>metade</b> da anterior (ex.: 25% → 12% → 6%).</li>
+          <li><b>Fundos ascendentes</b> (higher lows): cada recuo termina mais alto — sinal de acumulação.</li>
+          <li>Normalmente <b>3–4 contrações</b> (2 em mercado forte); a última bem apertada (<b>3–8%</b>).</li>
         </ul>
 
-        <h3>2. Comprimido × disparo</h3>
-        <ul>
-          <li><b>Comprimido (squeeze on):</b> quando as Bandas de Bollinger ficam <b>inteiramente dentro</b> dos Canais de Keltner. Isso só acontece quando a volatilidade recente está anormalmente baixa — a mola comprimida. No gráfico é a área <b>laranja</b>.</li>
-          <li><b>Disparo:</b> o dia em que a compressão <b>acaba</b> — as bandas voltam a sair do Keltner. É o momento em que a mola solta. Marcado com ▲/▼ no gráfico.</li>
-        </ul>
+        <h3>3. Volume secando</h3>
+        <p>Durante os recuos o <b>volume diminui</b> (a oferta some); nos repiques, aumenta. No <b>rompimento</b>, o ideal é volume <b>40–50% acima da média</b> (participação institucional). O painel marca o rompimento como "com volume" quando ≥ 1,5× a média de 50 dias.</p>
 
-        <h3>3. Direção do disparo</h3>
-        <p>O squeeze em si <b>não diz a direção</b> — só que vem um movimento. Aqui, a direção do disparo é definida de forma simples: <b>▲ alta</b> se, no dia do disparo, o preço está <b>acima</b> da base (média de 20); <b>▼ baixa</b> se está abaixo.</p>
+        <h3>4. Pivô e compra</h3>
+        <p>O <b>pivô</b> é o <b>topo da última (menor) contração</b>. A compra é no <b>rompimento do pivô</b>; o <b>stop</b> fica ~<b>7–8%</b> abaixo. O alvo aqui é medido como a <b>altura da base</b> projetada a partir do pivô.</p>
 
-        <h3>4. Largura de banda e percentil</h3>
-        <p>A <b>largura de banda</b> = (banda superior − inferior) ÷ base, em %. Quanto <b>menor</b>, mais comprimida a volatilidade. O <b>percentil</b> (de 0º a 100º) compara a largura de hoje com os últimos <b>~6 meses</b> (126 pregões): <b>5º percentil</b> significa "mais comprimido que 95% dos últimos 6 meses".</p>
+        <h3>5. Sem look-ahead</h3>
+        <p>Topos e fundos só são confirmados <b>${META.order} pregões depois</b> (precisam de barras à direita). Portanto a base só é "conhecida" quando o último topo confirma, e o <b>rompimento só é considerado a partir daí</b> — nada usa informação do futuro.</p>
 
-        <h3>5. Sem look-ahead (viés de futuro)</h3>
-        <p>Todos os indicadores usam apenas <b>janelas passadas</b> que fecham no próprio dia — nada olha para frente. O disparo em um dia é conhecido no <b>fechamento daquele dia</b>. Nenhum cálculo usa informação que só existiria depois.</p>
+        <h3>6. Backtest</h3>
+        <p>Para cada rompimento do histórico, o painel mede o retorno em 5–60 <b>dias úteis</b> depois, compara com a <b>base</b> (retorno médio do universo, ~${(b20>=0?"+":"")}${b20}%/20d) para achar o <b>edge</b>, e se o preço atingiu o <b>alvo antes do stop</b>. O VCP é feito para <b>ações líderes de forte momentum</b> — num universo genérico o edge é modesto; a força aparece nas ações certas.</p>
 
-        <h3>6. Backtest — o squeeze funciona?</h3>
-        <p>Para cada disparo do histórico, o painel mede o que aconteceu <b>depois</b>, em vários horizontes (5, 10, 20, 40 e 60 <b>dias úteis</b> — pregões, não dias de calendário; 40 pregões ≈ 2 meses corridos).</p>
-        <ul>
-          <li><b>Retorno na direção prevista:</b> se o disparo foi ▲ e o preço subiu, conta como acerto (verde); se foi ▼ e o preço caiu, também acerto. O retorno é medido "na direção da aposta".</li>
-          <li><b>Base:</b> o retorno <b>incondicional</b> do universo no mesmo horizonte (o mercado sobe sozinho, ~${b20>=0?"+":""}${b20}% em 20 pregões). Serve para descontar essa tendência natural.</li>
-          <li><b>Edge:</b> quanto o disparo <b>bate a base</b>. É o número que importa — acerto alto pode ser só o mercado subindo.</li>
-          <li><b>Expandiu:</b> % dos disparos em que a volatilidade <b>de fato aumentou</b> (a largura de banda subiu) nos 10 pregões seguintes.</li>
-        </ul>
-        <p><b>O que os dados mostram:</b> a compressão prevê muito bem a <b>expansão</b> de volatilidade (~85% dos disparos realmente expandem), mas a <b>direção</b> tem pouco edge. Ou seja: <b>o squeeze avisa que vem um movimento grande, não pra que lado.</b></p>
-
-        <h3>7. Parâmetros ajustáveis</h3>
-        <ul>
-          <li><b>Mín. dias comprimido:</b> só considera disparos precedidos por pelo menos N dias de compressão (filtra squeezes curtos/ruído).</li>
-          <li><b>Horizonte (5–60d):</b> em quantos pregões medir o resultado.</li>
-          <li><b>Período / escala</b> do gráfico de cada ativo.</li>
-        </ul>
-
-        <h3>8. Dados</h3>
-        <p>Fechamentos <b>ajustados</b> (splits e dividendos) via Yahoo Finance, ~10 anos por ativo. Período: ${META.start} a ${META.end}.</p>
+        <h3>7. Dados</h3>
+        <p>Fechamentos <b>ajustados</b> (splits/dividendos) via Yahoo Finance. Período: ${META.start} a ${META.end}.</p>
       </div>
       <div class="note"><b>Ferramenta de estudo</b> — não é recomendação de investimento. Rentabilidade passada não garante retorno futuro.</div>
       <div class="foot">Gerado em ${META.generated}.</div>`;
@@ -403,7 +374,7 @@
   const tabsEl=document.getElementById("tabs");
   tabsEl.innerHTML=`<button class="tab tbl" role="tab" data-tab="__table__">▤ Screening</button>`+
     `<button class="tab tbl" role="tab" data-tab="__method__">ⓘ Metodologia</button>`+
-    TICKERS.map(t=>{const s=SCREEN.find(x=>x.ticker===t);const dot=s&&s.state==="comprimido"?`<span class="dotc" style="background:var(--squeeze)"></span>`:s&&s.state==="disparou"?`<span class="dotc" style="background:var(--accent)"></span>`:"";
+    TICKERS.map(t=>{const s=SCREEN.find(x=>x.ticker===t);const dot=s&&s.state==="em_formacao"?`<span class="dotc" style="background:var(--live)"></span>`:s&&s.state==="rompeu"?`<span class="dotc" style="background:var(--good)"></span>`:"";
     return `<button class="tab" role="tab" data-tab="${t}">${dot}${t.replace(".SA","")}</button>`;}).join("");
   function selectTab(id){
     state.ticker=(id==="__table__"||id==="__method__")?state.ticker:id;
@@ -414,12 +385,10 @@
   }
   tabsEl.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>selectTab(b.dataset.tab)));
   function rerender(){const sel=tabsEl.querySelector('[aria-selected="true"]');selectTab(sel?sel.dataset.tab:"__table__");}
-
   const btn=document.getElementById("themeBtn");
   const cur=()=>document.documentElement.getAttribute("data-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");
   btn.addEventListener("click",()=>{document.documentElement.setAttribute("data-theme",cur()==="dark"?"light":"dark");rerender();});
   let rt;new ResizeObserver(()=>{clearTimeout(rt);rt=setTimeout(rerender,150);}).observe(document.body);
-
   selectTab("__table__");
 })();
 </script>

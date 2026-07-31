@@ -1,42 +1,44 @@
-# Screening de Compressão de Volatilidade (Bollinger Squeeze)
+# Screening VCP — Volatility Contraction Pattern (Minervini)
 
-Ferramenta de **estudo** que detecta o padrão clássico de **compressão de
-volatilidade** — quando as **Bandas de Bollinger (20, 2σ)** se apertam para
-**dentro dos Canais de Keltner (20, 1,5×ATR)** — e o **disparo** (a "mola"
-soltando) quando as bandas voltam a se expandir. Painel web (GitHub Pages) no
-mesmo formato dos outros screenings, com backtest de poder preditivo.
+Ferramenta de **estudo** que detecta o **VCP (Volatility Contraction Pattern)** de
+Mark Minervini: uma **base** dentro de uma tendência de alta (Stage 2), formada por
+**correções cada vez menores** (contrações que apertam), com **fundos ascendentes** e
+**volume secando**, terminando num **ponto de pivô** (compra no rompimento). Painel
+web (GitHub Pages) com backtest de poder preditivo.
 
 > ⚠️ **Ferramenta de estudo**, não é recomendação de investimento.
 
-## Como funciona
+## Regras do padrão (Minervini)
 
-- **Comprimido (squeeze on):** Bollinger inteiramente dentro do Keltner → baixa
-  volatilidade, "mola comprimida".
-- **Disparo:** o dia em que a compressão acaba (bandas saem do Keltner). A
-  direção (▲ alta / ▼ baixa) vem do preço vs. a média (SMA20) no disparo.
-- **Largura de banda:** (banda sup. − inf.) ÷ média, em %. Percentil na janela de
-  ~6 meses mede o quão comprimida está a volatilidade.
+- **Tendência (Stage 2):** preço > MM50 > MM150 > MM200, todas subindo; perto da
+  máxima de 52 semanas (≥30% acima da mínima, ≤25% abaixo da máxima).
+- **Contrações:** série de correções, cada uma **menor que a anterior** (~metade),
+  com **fundos ascendentes**. Tipicamente 3–4 (2 em mercado forte); a última bem
+  apertada (3–8%).
+- **Volume:** seca durante os recuos; **estoura ≥1,5× a média** no rompimento.
+- **Pivô = topo da última contração.** Compra no rompimento; **stop 7–8%** abaixo.
+  Alvo ≈ altura da base projetada a partir do pivô.
 
-Sem look-ahead: tudo usa janelas móveis (fecham no dia t com dados até t); o
-disparo em t é conhecido no fechamento de t.
+Sem look-ahead: topos/fundos só confirmam `order` (8) pregões depois; o rompimento
+só é considerado a partir do pivô confirmado.
 
-## Poder preditivo (backtest)
+## O painel
 
-Para cada disparo, mede o retorno futuro em 10/20/40 candles na direção prevista,
-o **edge** vs. a base (retorno incondicional do universo) e se a volatilidade de
-fato **expandiu**. Achado honesto: **a compressão prevê muito bem a expansão de
-volatilidade (~85% dos disparos), mas a direção tem pouco edge** — o squeeze avisa
-que *vem um movimento grande*, não pra que lado. (Ajuste "mín. dias comprimido" e
-o horizonte na UI.)
+- **Screening:** ativos com base VCP **em formação** (perto do pivô) ou **rompida**,
+  com as contrações, distância ao pivô e Stage 2 — ordenável, clicável.
+- **Por ativo:** preço + MM50/150/200, os pontos das contrações, a linha do pivô e
+  os rompimentos; subgráfico de volume; e a tabela de todas as bases VCP com o
+  retorno depois do rompimento (5–60 dias úteis).
+- **Poder preditivo:** retorno médio, acerto, **edge vs. base** e taxa de "alvo antes
+  do stop" dos rompimentos. (O VCP é feito para ações líderes de forte momentum — num
+  universo genérico o edge é modesto.)
+- **Metodologia:** aba explicando tudo.
 
 ## Estrutura
 
 ```
-compressao-volatilidade/
-├── pipeline/  data.py · indicators.py · main.py
-├── templates/painel.template.html
-├── docs/index.html   (painel publicado)
-└── tickers.txt · requirements.txt
+pipeline/  data.py · indicators.py (MAs, Stage 2) · vcp.py (detector) · main.py
+templates/painel.template.html · docs/index.html · tickers.txt · requirements.txt
 ```
 
 ## Rodar / publicar
@@ -46,5 +48,4 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 python pipeline/main.py        # baixa, detecta e regrava docs/index.html
 ```
-
 GitHub Pages: **Settings → Pages → branch `main`, pasta `/docs`.**
