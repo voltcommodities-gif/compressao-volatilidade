@@ -30,7 +30,7 @@ def _ri(a):
     return [None if (v is None or (isinstance(v, float) and np.isnan(v))) else int(v) for v in a]
 
 
-def process(ticker, ind, rs_pct):
+def process(ticker, ind, rs_pct, mkt):
     setups = detect_vcp(ind, rs_pct=rs_pct.to_numpy(float), order=ORDER)
     dates = [d.strftime("%Y-%m-%d") for d in ind.index]
     n = len(dates)
@@ -39,6 +39,7 @@ def process(ticker, ind, rs_pct):
         s["base_date"] = dates[s["highs"][0]]
         s["pivot_date"] = dates[s["pivot_i"]]
         s["brk_date"] = dates[s["brk_i"]] if s["brk_i"] is not None else None
+        s["market_ok"] = bool(mkt[s["brk_i"] if s["brk_i"] is not None else s["pivot_i"]])
         if s["brk_i"] is not None:                 # alvo × stop após o rompimento
             b, oc = s["brk_i"], "sem_dados"
             endw = min(n, b + 1 + 60)
@@ -68,6 +69,7 @@ def process(ticker, ind, rs_pct):
         last_price=round(float(close[-1]), 2), last_date=dates[-1],
         n_setups=len(setups), stage2_today=bool(ind["stage2"].iloc[-1]),
         rs_today=(None if np.isnan(rs_pct.iloc[-1]) else round(float(rs_pct.iloc[-1]))),
+        market_today=bool(mkt[-1]),
     )
     return panel, screen
 
@@ -115,11 +117,26 @@ def main(argv=None):
     rs_mat = pd.DataFrame({t: inds[t]["rs_raw"] for t in inds})
     rs_pct_mat = rs_mat.rank(axis=1, pct=True) * 100.0
 
-    # fase 2: detecta o VCP com o RS disponível
+    # ambiente de mercado: índice (SPY/QQQ) acima da sua média mensal de 10 períodos.
+    # Sem look-ahead: uso a EMA até o mês ANTERIOR (shift) para os dias do mês corrente.
+    bench = "SPY" if "SPY" in inds else ("QQQ" if "QQQ" in inds else None)
+    if bench:
+        bc = inds[bench]["close"]
+        monthly = bc.resample("ME").last()
+        ema10 = monthly.ewm(span=10, adjust=False).mean().shift(1)
+        fav = (bc >= ema10.reindex(bc.index, method="ffill")).fillna(False)
+    else:
+        fav = None
+
+    # fase 2: detecta o VCP com RS e ambiente de mercado disponíveis
     data, order = {}, []
     for t in inds:
         rs_pct = rs_pct_mat[t].reindex(inds[t].index)
-        panel, screen = process(t, inds[t], rs_pct)
+        if fav is not None:
+            mkt = fav.reindex(inds[t].index, method="ffill").fillna(False).to_numpy(bool)
+        else:
+            mkt = np.ones(len(inds[t]), bool)
+        panel, screen = process(t, inds[t], rs_pct, mkt)
         panel["screen"] = screen
         data[t] = panel
         order.append(t)

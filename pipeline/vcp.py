@@ -67,7 +67,9 @@ def detect_vcp(df, rs_pct=None, order=8, min_contractions=2, first_depth_max=0.3
             d_new = (Hc[1] - Lc[1]) / Hc[1]
             if Ls:
                 d_right = (Hs[0][1] - Ls[0][1]) / Hs[0][1]
-                if not (d_new > d_right + 1e-6 and Lc[1] < Ls[0][1]):
+                # regra do "~metade": cada contração ≤ 80% da anterior (aperto real)
+                # + fundos ascendentes
+                if not (d_right <= d_new * 0.80 and Lc[1] < Ls[0][1]):
                     break
             Hs.insert(0, Hc)
             Ls.insert(0, Lc)
@@ -86,6 +88,8 @@ def detect_vcp(df, rs_pct=None, order=8, min_contractions=2, first_depth_max=0.3
             continue
         prior_high = max(h[1] for h in Hs[:-1])
         if pivot_p < prior_high * 0.97:          # pivô no topo da base
+            continue
+        if pivot_i - Hs[0][0] < 15:              # base curta demais não é VCP (~4+ semanas)
             continue
         # contração no TEMPO (estrutural): a última correção mais curta que a primeira
         durs = [Ls[i][0] - Hs[i][0] for i in range(len(Ls))]

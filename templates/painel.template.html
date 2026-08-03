@@ -134,7 +134,7 @@
 
   const ALL=[]; TICKERS.forEach(t=>DATA[t].setups.forEach(s=>ALL.push(Object.assign({tk:t},s))));
   let state={ticker:TICKERS[0], range:"3A", pscale:"lin", minC:2, horizon:20,
-    filters:{stage2:false, rs:false, vdry:false, volbrk:false}};
+    filters:{stage2:false, rs:false, vdry:false, volbrk:false, market:false}};
 
   /* ---------- filtros de qualidade (opcionais, o usuário liga/desliga) ---------- */
   function filterSetup(s){
@@ -144,6 +144,7 @@
     if(f.rs && !(s.rs!=null && s.rs>=70)) return false;
     if(f.vdry && !(s.vol_dry!=null && s.vol_dry<=1.05)) return false;
     if(f.volbrk && s.status==="rompeu" && !s.vol_ok) return false;
+    if(f.market && !s.market_ok) return false;
     return true;
   }
   function tickerRef(t){
@@ -158,7 +159,7 @@
     return `<div class="filterbar">
       <div class="rng"><span class="rl">mín. contrações <b>${state.minC}</b></span><input type="range" id="fMc" min="2" max="5" step="1" value="${state.minC}"></div>
       <div class="fgroup"><span class="rl" style="width:100%">filtros de qualidade (opcionais — o padrão "de manual" liga Stage 2 + RS)</span>
-        ${tg("stage2","Stage 2")}${tg("rs","RS ≥ 70")}${tg("vdry","Vol. secando")}${tg("volbrk","Vol. forte no rompimento")}</div>
+        ${tg("stage2","Stage 2")}${tg("rs","RS ≥ 70")}${tg("vdry","Vol. secando")}${tg("volbrk","Vol. forte no rompimento")}${tg("market","Mercado favorável")}</div>
     </div>`;
   }
   function bindFilters(host){
@@ -394,14 +395,15 @@
 
         <h3>2. As contrações (o coração do padrão — sempre exigido)</h3>
         <ul>
-          <li><b>Preço:</b> cada correção é <b>menor que a anterior</b> (Minervini: ~metade; ex.: 25% → 12% → 6%). A primeira até ~35%, a <b>última apertada (≤ 10%)</b>.</li>
-          <li><b>Fundos ascendentes</b> (higher lows): cada recuo termina mais alto — acumulação.</li>
+          <li><b>Preço — regra do "~metade":</b> cada correção é ≤ <b>80% da anterior</b> (aperto real; ex.: 25% → 12% → 6%). A primeira até ~35%.</li>
+          <li><b>Fundos ascendentes</b> (higher lows): cada recuo termina mais alto — acumulação (o oposto, alargando, seria distribuição).</li>
           <li><b>Tempo:</b> as contrações também <b>encurtam em duração</b> (a última mais curta que a primeira).</li>
+          <li><b>Duração da base:</b> pelo menos ~4 semanas (bases curtas demais não contam).</li>
           <li>Mínimo de <b>2 contrações</b> (ajustável; 3–4 é o padrão).</li>
         </ul>
 
-        <h3>3. Volume — <i>opções</i></h3>
-        <p><b>Vol. secando:</b> o volume médio no terço final da base menor que no terço inicial (a oferta some). <b>Vol. forte no rompimento:</b> volume ≥ 1,5× a média de 50 dias no dia do rompimento (os "40–50% acima" do Minervini). Ambos são filtros opcionais — o volume do rompimento é sempre <b>mostrado</b> ("forte"/"fraco"), mas só restringe a lista se você ligar o filtro.</p>
+        <h3>3. Volume e mercado — <i>opções</i></h3>
+        <p><b>Vol. secando:</b> volume médio no terço final da base menor que no inicial (a oferta some). <b>Vol. forte no rompimento:</b> volume ≥ 1,5× a média de 50 dias no dia do rompimento (os "40–50% acima" do Minervini). <b>Mercado favorável:</b> o índice (SPY) acima da sua <b>média mensal de 10 períodos</b> — o artigo cita ~<b>90%</b> de acerto nessa condição; evita operar em correção/bear. O volume do rompimento é sempre <b>mostrado</b>, mas só restringe a lista se você ligar o filtro.</p>
 
         <h3>4. Pivô e compra</h3>
         <p>O <b>pivô</b> é o <b>topo da última (menor) contração</b>. A compra é no <b>rompimento do pivô</b>; o <b>stop</b> fica ~<b>7–8%</b> abaixo. O alvo aqui é medido como a <b>altura da base</b> projetada a partir do pivô.</p>
